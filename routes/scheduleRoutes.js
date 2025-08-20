@@ -12,7 +12,7 @@ const router = express.Router();
 
 router.route('/')
   .get(getSchedules)
-  .post(protect, authorize('admin', 'secretaria'), upload, uploadSchedule);
+  .post(protect, authorize('admin', 'secretaria'), upload.single('file'), uploadSchedule);
 
 router.route('/:className') // Use className as parameter for deletion
   .delete(protect, authorize('admin', 'secretaria'), deleteSchedule);

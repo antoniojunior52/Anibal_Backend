@@ -7,16 +7,16 @@ const {
   deleteTeamMember,
 } = require('../controllers/teamController');
 const { protect, authorize } = require('../middleware/auth');
-const { upload } = require('../controllers/fileController'); // Multer middleware
+const { upload } = require('../controllers/fileController');
 
 const router = express.Router();
 
 router.route('/')
   .get(getTeam)
-  .post(protect, authorize('admin'), upload, createTeamMember); // Only admin can manage team
+  .post(protect, authorize('admin', 'secretaria'), upload.single('file'), createTeamMember);
 
 router.route('/:id')
-  .put(protect, authorize('admin'), upload, updateTeamMember)
-  .delete(protect, authorize('admin'), deleteTeamMember);
+  .put(protect, authorize('admin', 'secretaria'), upload.single('file'), updateTeamMember)
+  .delete(protect, authorize('admin', 'secretaria'), deleteTeamMember);
 
 module.exports = router;

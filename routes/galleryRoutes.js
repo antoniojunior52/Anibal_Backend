@@ -6,13 +6,13 @@ const {
   deleteGalleryImage,
 } = require('../controllers/galleryController');
 const { protect, authorize } = require('../middleware/auth');
-const { upload } = require('../controllers/fileController'); // Multer middleware
+const { upload } = require('../controllers/fileController');
 
 const router = express.Router();
 
 router.route('/')
   .get(getGalleryImages)
-  .post(protect, authorize('admin', 'secretaria'), upload, uploadGalleryImage);
+  .post(protect, authorize('admin', 'secretaria'), upload.single('file'), uploadGalleryImage);
 
 router.route('/:id')
   .delete(protect, authorize('admin', 'secretaria'), deleteGalleryImage);

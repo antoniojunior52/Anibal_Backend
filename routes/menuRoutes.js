@@ -5,12 +5,12 @@ const {
   uploadMenu,
 } = require('../controllers/menuController');
 const { protect, authorize } = require('../middleware/auth');
-const { upload } = require('../controllers/fileController'); // Multer middleware
+const { upload } = require('../controllers/fileController');
 
 const router = express.Router();
 
 router.route('/')
   .get(getMenu)
-  .post(protect, authorize('admin', 'secretaria'), upload, uploadMenu);
+  .post(protect, authorize('admin', 'secretaria'), upload.single('file'), uploadMenu);
 
 module.exports = router;

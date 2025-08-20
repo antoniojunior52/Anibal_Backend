@@ -7,10 +7,6 @@ const MenuSchema = new mongoose.Schema({
     required: true,
     unique: true, // Only one menu should be active at a time
   },
-  uploadedAt: {
-    type: Date,
-    default: Date.now,
-  },
 });
 
 module.exports = mongoose.model('Menu', MenuSchema);

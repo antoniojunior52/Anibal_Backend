@@ -8,7 +8,6 @@ const path = require('path');
 // @access  Public
 const getMenu = async (req, res) => {
   try {
-    // We expect only one menu document, so find the latest one or just one
     const menu = await Menu.findOne().sort({ uploadedAt: -1 });
     if (menu) {
       res.json({ fileUrl: menu.fileUrl });
@@ -24,43 +23,40 @@ const getMenu = async (req, res) => {
 // @route   POST /api/menu
 // @access  Private (Admin/Secretaria)
 const uploadMenu = async (req, res) => {
-  console.log('--- Inside uploadMenu controller ---'); // Added log
-  console.log('req.file:', req.file); // Added log to see the file object from Multer
-  console.log('req.body:', req.body); // Added log to see the request body (should be empty for file uploads with Multer)
+  console.log('--- Inside uploadMenu controller ---');
+  console.log('req.file:', req.file); // Este log agora deve mostrar o objeto do arquivo
+  console.log('req.body:', req.body);
 
   const fileUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
   if (!fileUrl) {
-    console.error('Error: PDF file is required in menu upload. req.file was not set.'); // More specific log
+    console.error('Error: PDF file is required in menu upload. req.file was not set.');
     return res.status(400).json({ msg: 'PDF file is required' });
   }
 
   try {
-    // Find if a menu already exists
     let menu = await Menu.findOne();
 
     if (menu) {
-      // If old menu exists, delete the old file
       if (menu.fileUrl) {
         const oldFilePath = path.join(__dirname, '..', menu.fileUrl);
+        // Exclui o arquivo antigo de forma assíncrona
         fs.unlink(oldFilePath, (err) => {
           if (err) console.error('Error deleting old menu file:', err);
         });
       }
-      // Update existing menu
       menu.fileUrl = fileUrl;
       menu.uploadedAt = Date.now();
       await menu.save();
     } else {
-      // Create new menu entry
       menu = await Menu.create({ fileUrl });
     }
 
     res.status(200).json({ msg: 'Menu updated successfully', fileUrl: menu.fileUrl });
 
   } catch (error) {
-    console.error('Error in uploadMenu try-catch block:', error.message); // Added log
-    // If there's an error, delete the newly uploaded file
+    console.error('Error in uploadMenu try-catch block:', error.message);
+    // Se houver um erro, tenta excluir o arquivo recém-carregado para limpeza
     if (req.file) {
       fs.unlink(req.file.path, (err) => {
         if (err) console.error('Error deleting uploaded file on menu update error:', err);

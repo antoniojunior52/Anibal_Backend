@@ -12,7 +12,7 @@ const TeamSchema = new mongoose.Schema({
     required: true,
   },
   subjects: {
-    type: [String], // Array of strings for subjects (e.g., ["Matemática", "Física"])
+    type: [String], 
     default: [],
   },
   bio: {
