@@ -36,6 +36,30 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log('MongoDB conectado com sucesso'))
   .catch(err => console.error('Erro de conexão com o MongoDB:', err));
 
+// --- Rota para o Chatbot (Adicionada) ---
+app.post("/api/chat", async (req, res) => {
+  const { message } = req.body;
+  let reply = "Desculpe, não consegui encontrar informações sobre isso. Tente perguntar sobre 'eventos', 'horários' ou 'história'.";
+
+  if (message) {
+    const normalizedMessage = message.toLowerCase().trim();
+
+    if (normalizedMessage.includes("evento")) {
+      reply = "Estamos a planear uma feira de ciências incrível para o final do ano letivo. Fique atento às nossas notícias para mais detalhes!";
+    } else if (normalizedMessage.includes("história")) {
+      reply = "A nossa escola foi fundada em 1985 com a missão de promover a educação de qualidade na comunidade. Você pode ler mais sobre ela na página 'História'.";
+    } else if (normalizedMessage.includes("horários") || normalizedMessage.includes("aulas")) {
+      reply = "Os horários das aulas estão disponíveis na secção 'Horários' do nosso site. Pode fazer o download do arquivo em PDF lá.";
+    } else if (normalizedMessage.includes("equipe") || normalizedMessage.includes("professores")) {
+      reply = "Temos uma equipa de professores altamente qualificada e dedicada. Conheça a nossa equipa na página 'Professores' do site.";
+    }
+  }
+
+  res.json({ reply });
+});
+// --- Fim da Rota do Chatbot ---
+
+
 // Usar rotas
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -67,10 +91,6 @@ if (process.env.NODE_ENV === 'production') {
   // O servidor Express só precisa lidar com as rotas da API (/api/*) e servir seus próprios arquivos estáticos (uploads).
   // A presença de um 'app.get('*')' no Express em desenvolvimento pode causar conflitos
   // e o 'TypeError: Missing parameter name' que está a ver.
-  // Se você precisa que o Express sirva o index.html em desenvolvimento,
-  // isso geralmente é feito com um proxy no setup do frontend (ex: src/setupProxy.js)
-  // ou configurando o Express para servir a pasta 'public' antes das rotas da API,
-  // mas o 'app.get('*')' no final é problemático aqui.
   // Ao remover este bloco, o Express irá simplesmente ignorar requisições para rotas de frontend,
   // e o seu servidor de desenvolvimento do React deverá tratá-las.
 }
@@ -85,4 +105,4 @@ app.use((err, req, res, next) => {
 // Iniciar o servidor
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
-});
+})
