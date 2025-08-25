@@ -5,6 +5,9 @@ const EventSchema = new mongoose.Schema({
   date: {
     type: Date,
     required: true,
+    // O evento será expirado no momento exato em que a data for alcançada
+    // e o documento for mais antigo que 0 segundos em relação a essa data.
+    expires: 0,
   },
   title: {
     type: String,

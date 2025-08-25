@@ -20,6 +20,15 @@ const createEvent = async (req, res) => {
   const { date, title, description } = req.body;
 
   try {
+    // Converte a string de data do corpo da requisição para um objeto Date
+    const eventDate = new Date(date);
+    const currentDate = new Date();
+
+    // Validação: checa se a data do evento é anterior à data atual
+    if (eventDate < currentDate) {
+      return res.status(400).json({ msg: 'A data do evento não pode ser anterior à data atual.' });
+    }
+
     const event = await Event.create({
       date,
       title,
@@ -45,7 +54,14 @@ const updateEvent = async (req, res) => {
       return res.status(404).json({ msg: 'Event not found' });
     }
 
-    event.date = date || event.date;
+    // A validação para a data de atualização também pode ser adicionada aqui,
+    // se necessário.
+    const updatedDate = date || event.date;
+    if (new Date(updatedDate) < new Date()) {
+      return res.status(400).json({ msg: 'A data do evento não pode ser anterior à data atual.' });
+    }
+
+    event.date = updatedDate;
     event.title = title || event.title;
     event.description = description || event.description;
 
