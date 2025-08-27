@@ -22,7 +22,7 @@ const registerUserByAdmin = async (req, res) => {
     // Check if user already exists
     let user = await User.findOne({ email });
     if (user) {
-      return res.status(400).json({ msg: 'User already exists' });
+      return res.status(400).json({ msg: 'Usuário já existe.' });
     }
 
     // Create user
@@ -59,7 +59,7 @@ const publicRegisterUser = async (req, res) => {
     // Check if user already exists
     let user = await User.findOne({ email });
     if (user) {
-      return res.status(400).json({ msg: 'User already exists' });
+      return res.status(400).json({ msg: 'Usuário já existe.' });
     }
 
     // Create user with default role (Professor(a)) and no admin/secretaria permissions
@@ -94,13 +94,13 @@ const loginUser = async (req, res) => {
     // Check for user
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
+      return res.status(400).json({ msg: 'Credenciais Inválidas' });
     }
 
     // Check password
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
+      return res.status(400).json({ msg: 'Credenciais Inválidas' });
     }
 
     res.json({
@@ -129,7 +129,7 @@ const forgotPassword = async (req, res) => {
   try {
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ msg: 'User with that email does not exist' });
+      return res.status(404).json({ msg: 'Não existe usuário com esse e-mail.' });
     }
 
     // Generate reset token
@@ -207,10 +207,10 @@ const forgotPassword = async (req, res) => {
         user.resetPasswordToken = undefined;
         user.resetPasswordExpire = undefined;
         user.save(); // Revert token if email fails
-        return res.status(500).json({ msg: 'Email could not be sent' });
+        return res.status(500).json({ msg: 'Email não pode ser enviado' });
       }
-      console.log('Email sent:', info.response);
-      res.status(200).json({ msg: 'Email sent successfully' });
+      console.log('Email enviado:', info.response);
+      res.status(200).json({ msg: 'Email enviado com sucesso' });
     });
 
   } catch (error) {
@@ -231,7 +231,7 @@ const resetPassword = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({ msg: 'Invalid or expired reset token' });
+      return res.status(400).json({ msg: 'Inválido ou Expirado, resete o tokem' });
     }
 
     user.password = req.body.password;
@@ -239,7 +239,7 @@ const resetPassword = async (req, res) => {
     user.resetPasswordExpire = undefined;
     await user.save();
 
-    res.status(200).json({ msg: 'Password reset successful' });
+    res.status(200).json({ msg: 'Senha alterada com sucesso' });
 
   } catch (error) {
     res.status(500).json({ msg: error.message });

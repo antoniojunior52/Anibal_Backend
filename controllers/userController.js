@@ -1,157 +1,157 @@
 // controllers/userController.js
 const User = require('../models/User');
 
-// @desc    Get all users
-// @route   GET /api/users
-// @access  Private (Admin only)
+// @desc    Get all users
+// @route   GET /api/users
+// @access  Private (Admin only)
 const getUsers = async (req, res) => {
-  try {
-    const users = await User.find().select('-password'); // Exclude passwords
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ msg: error.message });
-  }
+  try {
+    const users = await User.find().select('-password'); // Exclui senhas
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ msg: 'Erro ao buscar usuários.' });
+  }
 };
 
-// @desc    Get logged in user profile
-// @route   GET /api/users/profile
-// @access  Private
+// @desc    Get logged in user profile
+// @route   GET /api/users/profile
+// @access  Private
 const getUserProfile = async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id).select('-password');
-    if (user) {
-      res.json({
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        isAdmin: user.isAdmin,
-        isSecretaria: user.isSecretaria,
-      });
-    } else {
-      res.status(404).json({ msg: 'User not found' });
-    }
-  } catch (error) {
-    res.status(500).json({ msg: error.message });
-  }
+  try {
+    const user = await User.findById(req.user._id).select('-password');
+    if (user) {
+      res.json({
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isAdmin: user.isAdmin,
+        isSecretaria: user.isSecretaria,
+      });
+    } else {
+      res.status(404).json({ msg: 'Usuário não encontrado.' });
+    }
+  } catch (error) {
+    res.status(500).json({ msg: 'Erro ao buscar perfil do usuário.' });
+  }
 };
 
-// @desc    Update user profile
-// @route   PUT /api/users/profile
-// @access  Private
+// @desc    Update user profile
+// @route   PUT /api/users/profile
+// @access  Private
 const updateUserProfile = async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id);
+  try {
+    const user = await User.findById(req.user._id);
 
-    if (user) {
-      user.name = req.body.name || user.name;
-      user.email = req.body.email || user.email;
+    if (user) {
+      user.name = req.body.name || user.name;
+      user.email = req.body.email || user.email;
 
-      const updatedUser = await user.save();
+      const updatedUser = await user.save();
 
-      res.json({
-        id: updatedUser._id,
-        name: updatedUser.name,
-        email: updatedUser.email,
-        role: updatedUser.role,
-        isAdmin: updatedUser.isAdmin,
-        isSecretaria: updatedUser.isSecretaria,
-      });
-    } else {
-      res.status(404).json({ msg: 'User not found' });
-    }
-  } catch (error) {
-    res.status(500).json({ msg: error.message });
-  }
+      res.json({
+        id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        isAdmin: updatedUser.isAdmin,
+        isSecretaria: updatedUser.isSecretaria,
+      });
+    } else {
+      res.status(404).json({ msg: 'Usuário não encontrado.' });
+    }
+  } catch (error) {
+    res.status(500).json({ msg: 'Erro ao atualizar perfil do usuário.' });
+  }
 };
 
-// @desc    Change user password
-// @route   PUT /api/users/change-password
-// @access  Private
+// @desc    Change user password
+// @route   PUT /api/users/change-password
+// @access  Private
 const changePassword = async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
+  const { currentPassword, newPassword } = req.body;
 
-  try {
-    const user = await User.findById(req.user._id);
+  try {
+    const user = await User.findById(req.user._id);
 
-    if (!user) {
-      return res.status(404).json({ msg: 'User not found' });
-    }
+    if (!user) {
+      return res.status(404).json({ msg: 'Usuário não encontrado.' });
+    }
 
-    if (!(await user.matchPassword(currentPassword))) {
-      return res.status(401).json({ msg: 'Current password is incorrect' });
-    }
+    if (!(await user.matchPassword(currentPassword))) {
+      return res.status(401).json({ msg: 'A senha atual está incorreta.' });
+    }
 
-    user.password = newPassword; // Mongoose pre-save hook will hash this
-    await user.save();
+    user.password = newPassword; // O hook pre-save do Mongoose irá hashar isso
+    await user.save();
 
-    res.status(200).json({ msg: 'Password updated successfully' });
-  } catch (error) {
-    res.status(500).json({ msg: error.message });
-  }
+    res.status(200).json({ msg: 'Senha atualizada com sucesso.' });
+  } catch (error) {
+    res.status(500).json({ msg: 'Erro ao atualizar a senha.' });
+  }
 };
 
 
-// @desc    Update user permissions (Admin only)
-// @route   PUT /api/users/:id
-// @access  Private (Admin only)
+// @desc    Update user permissions (Admin only)
+// @route   PUT /api/users/:id
+// @access  Private (Admin only)
 const updateUserPermissions = async (req, res) => {
-  const { id } = req.params;
-  const { isAdmin, isSecretaria, role } = req.body;
+  const { id } = req.params;
+  const { isAdmin, isSecretaria, role } = req.body;
 
-  try {
-    const user = await User.findById(id);
+  try {
+    const user = await User.findById(id);
 
-    if (!user) {
-      return res.status(404).json({ msg: 'User not found' });
-    }
+    if (!user) {
+      return res.status(404).json({ msg: 'Usuário não encontrado.' });
+    }
 
-    // Prevent admin from revoking their own admin access
-    if (req.user._id.toString() === id && isAdmin === false) {
-      return res.status(403).json({ msg: 'Cannot revoke your own admin access' });
-    }
+    // Impede que o administrador revogue seu próprio acesso de administrador
+    if (req.user._id.toString() === id && isAdmin === false) {
+      return res.status(403).json({ msg: 'Não é possível revogar seu próprio acesso de administrador.' });
+    }
 
-    if (typeof isAdmin === 'boolean') user.isAdmin = isAdmin;
-    if (typeof isSecretaria === 'boolean') user.isSecretaria = isSecretaria;
-    if (role) user.role = role;
+    if (typeof isAdmin === 'boolean') user.isAdmin = isAdmin;
+    if (typeof isSecretaria === 'boolean') user.isSecretaria = isSecretaria;
+    if (role) user.role = role;
 
-    await user.save();
-    res.json({ msg: 'User permissions updated', user: user.toObject({ getters: true, virtuals: false }) }); // Return updated user without password
-  } catch (error) {
-    res.status(500).json({ msg: error.message });
-  }
+    await user.save();
+    res.json({ msg: 'Permissões do usuário atualizadas.', user: user.toObject({ getters: true, virtuals: false }) }); // Retorna o usuário atualizado sem a senha
+  } catch (error) {
+    res.status(500).json({ msg: 'Erro ao atualizar as permissões do usuário.' });
+  }
 };
 
-// @desc    Delete user (Admin only)
-// @route   DELETE /api/users/:id
-// @access  Private (Admin only)
+// @desc    Delete user (Admin only)
+// @route   DELETE /api/users/:id
+// @access  Private (Admin only)
 const deleteUser = async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params;
 
-  try {
-    const user = await User.findById(id);
+  try {
+    const user = await User.findById(id);
 
-    if (!user) {
-      return res.status(404).json({ msg: 'User not found' });
-    }
+    if (!user) {
+      return res.status(404).json({ msg: 'Usuário não encontrado.' });
+    }
 
-    // Prevent admin from deleting themselves
-    if (req.user._id.toString() === id) {
-      return res.status(403).json({ msg: 'Cannot delete yourself' });
-    }
+    // Impede que o administrador se exclua
+    if (req.user._id.toString() === id) {
+      return res.status(403).json({ msg: 'Não é possível se excluir.' });
+    }
 
-    await user.deleteOne();
-    res.status(200).json({ msg: 'User removed' });
-  } catch (error) {
-    res.status(500).json({ msg: error.message });
-  }
+    await user.deleteOne();
+    res.status(200).json({ msg: 'Usuário removido.' });
+  } catch (error) {
+    res.status(500).json({ msg: 'Erro ao remover usuário.' });
+  }
 };
 
 module.exports = {
-  getUsers,
-  getUserProfile,
-  updateUserProfile,
-  changePassword,
-  updateUserPermissions,
-  deleteUser,
+  getUsers,
+  getUserProfile,
+  updateUserProfile,
+  changePassword,
+  updateUserPermissions,
+  deleteUser,
 };
