@@ -1,30 +1,30 @@
 // middleware/auth.js
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const asyncHandler = require('express-async-handler');
 
-const protect = (req, res, next) => {
-  let token;
+const protect = asyncHandler(async (req, res, next) => {
+  let token;
 
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    try {
-      // Get token from header
-      token = req.headers.authorization.split(' ')[1];
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    try {
+      token = req.headers.authorization.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      
+      // Encontre e anexe o objeto de usuário completo à requisição
+      req.user = await User.findById(decoded.id).select('-password');
+      next();
+    } catch (error) {
+      res.status(401);
+      throw new Error('Não autorizado, token inválido.');
+    }
+  }
 
-      // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      // Attach user to the request
-      req.user = decoded.id; // O payload do token é o ID do usuário
-      next();
-    } catch (error) {
-      res.status(401).json({ msg: 'Não autorizado, token inválido.' });
-    }
-  }
-
-  if (!token) {
-    res.status(401).json({ msg: 'Não autorizado, nenhum token fornecido.' });
-  }
-};
+  if (!token) {
+    res.status(401);
+    throw new Error('Não autorizado, nenhum token fornecido.');
+  }
+});
 
 const authorize = (...roles) => (req, res, next) => {
   // Assumindo que req.user é o ID do usuário do middleware protect

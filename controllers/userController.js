@@ -1,5 +1,7 @@
 // controllers/userController.js
+const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
+const bcrypt = require('bcryptjs');
 
 // @desc    Get all users
 // @route   GET /api/users
@@ -39,31 +41,36 @@ const getUserProfile = async (req, res) => {
 // @desc    Update user profile
 // @route   PUT /api/users/profile
 // @access  Private
-const updateUserProfile = async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id);
+const updateUserProfile = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
 
-    if (user) {
-      user.name = req.body.name || user.name;
-      user.email = req.body.email || user.email;
+  if (user) {
+    user.name = req.body.name || user.name;
+    
+    // Check if the email is being changed and if the new email already exists
+    if (req.body.email && req.body.email !== user.email) {
+      const emailExists = await User.findOne({ email: req.body.email });
+      if (emailExists && emailExists._id.toString() !== user._id.toString()) {
+        res.status(400);
+        throw new Error('Email já está em uso.');
+      }
+      user.email = req.body.email;
+    }
 
-      const updatedUser = await user.save();
+    const updatedUser = await user.save();
 
-      res.json({
-        id: updatedUser._id,
-        name: updatedUser.name,
-        email: updatedUser.email,
-        role: updatedUser.role,
-        isAdmin: updatedUser.isAdmin,
-        isSecretaria: updatedUser.isSecretaria,
-      });
-    } else {
-      res.status(404).json({ msg: 'Usuário não encontrado.' });
-    }
-  } catch (error) {
-    res.status(500).json({ msg: 'Erro ao atualizar perfil do usuário.' });
-  }
-};
+    res.json({
+      _id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      isAdmin: updatedUser.isAdmin,
+    });
+  } else {
+    res.status(404);
+    throw new Error('Usuário não encontrado');
+  }
+});
 
 // @desc    Change user password
 // @route   PUT /api/users/change-password
