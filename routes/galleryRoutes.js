@@ -1,4 +1,3 @@
-// routes/galleryRoutes.js
 const express = require('express');
 const {
   getGalleryImages,
@@ -12,7 +11,7 @@ const router = express.Router();
 
 router.route('/')
   .get(getGalleryImages)
-  .post(protect, authorize('admin', 'secretaria'), upload.single('file'), uploadGalleryImage);
+  .post(protect, authorize('admin', 'secretaria'), upload.array('files', 10), uploadGalleryImage);
 
 router.route('/:id')
   .delete(protect, authorize('admin', 'secretaria'), deleteGalleryImage);
