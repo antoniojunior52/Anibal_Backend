@@ -11,13 +11,27 @@ const NewsSchema = new mongoose.Schema({
     required: true,
   },
   image: {
-    type: String, // Store path to image
+    type: String,
     required: true,
   },
   date: {
     type: Date,
     default: Date.now,
   },
+  authorEmail: {
+    type: String,
+    required: true,
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+  // --- Adicionado o novo campo para o link externo ---
+  externalLink: {
+    type: String,
+    required: false,
+  },
+  // --- Fim da alteração ---
 }, { timestamps: true });
 
 module.exports = mongoose.model('News', NewsSchema);
