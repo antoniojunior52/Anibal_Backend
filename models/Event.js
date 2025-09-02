@@ -5,8 +5,6 @@ const EventSchema = new mongoose.Schema({
   date: {
     type: Date,
     required: true,
-    // O evento será expirado no momento exato em que a data for alcançada
-    // e o documento for mais antigo que 0 segundos em relação a essa data.
     expires: 0,
   },
   title: {
@@ -17,6 +15,12 @@ const EventSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  // --- Adicionado o campo para o e-mail do autor ---
+  authorEmail: {
+    type: String,
+    required: true,
+  },
+  // --- Fim da alteração ---
 }, { timestamps: true });
 
 module.exports = mongoose.model('Event', EventSchema);
