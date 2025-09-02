@@ -35,7 +35,7 @@ const createNews = async (req, res) => {
 
   try {
     await sharp(tempImagePath)
-      .resize(800)
+      .resize(300)
       .webp({ quality: 80 })
       .toFile(finalImagePath);
 
