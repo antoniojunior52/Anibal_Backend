@@ -1,10 +1,1 @@
-PORT=5000
-MONGO_URI=mongodb+srv://antoniojunior:schoolportalbackend@clusterschool.fa0cw85.mongodb.net/?retryWrites=true&w=majority&appName=ClusterSchool
-JWT_SECRET=your_jwt_secret_key_here # Replace with a strong, random string
-UPLOAD_FOLDER=uploads
-
-EMAIL_USERNAME=anibal.escola.01@gmail.com
-EMAIL_PASSWORD=chfs qsci lzmm txcu
-
-FRONTEND_URL=http://localhost:3000
 
