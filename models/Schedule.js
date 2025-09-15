@@ -1,11 +1,11 @@
 // models/Schedule.js
 const mongoose = require('mongoose');
+const { bool } = require('sharp');
 
 const ScheduleSchema = new mongoose.Schema({
   className: {
     type: String,
     required: true,
-    unique: true, // Each class should have a unique schedule
   },
   fileUrl: {
     type: String, // Path to the Excel schedule file
@@ -14,6 +14,15 @@ const ScheduleSchema = new mongoose.Schema({
   uploadedAt: {
     type: Date,
     default: Date.now,
+  },
+  isActive: {
+    type:
+     Boolean,
+    default: true,
+  },
+  author: {
+    type: String,
+    required: true,
   },
 });
 

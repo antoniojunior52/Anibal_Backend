@@ -10,6 +10,12 @@ const GallerySchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  // --- Adicionado o campo para o e-mail do autor ---
+  authorEmail: {
+    type: String,
+    required: true,
+  },
+  // --- Fim da alteração ---
 }, { timestamps: true });
 
 module.exports = mongoose.model('Gallery', GallerySchema);
