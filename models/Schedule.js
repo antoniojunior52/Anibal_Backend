@@ -1,6 +1,5 @@
 // models/Schedule.js
 const mongoose = require('mongoose');
-const { bool } = require('sharp');
 
 const ScheduleSchema = new mongoose.Schema({
   className: {
