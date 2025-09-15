@@ -10,13 +10,14 @@ const noticeSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  // O campo createdAt terá um valor padrão do momento da criação.
-  // A propriedade 'expires' é a chave para o índice TTL,
-  // que irá expirar o documento 24 horas após o valor em createdAt.
+
   createdAt: {
     type: Date,
     default: Date.now,
-    expires: '24h',
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
   },
 });
 
