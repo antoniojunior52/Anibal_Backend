@@ -4,6 +4,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+const { startCronJobs } = require('./jobs/cronJobs');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -27,6 +28,11 @@ const UPLOAD_FOLDER = process.env.UPLOAD_FOLDER || 'uploads';
 app.use(cors());
 app.use(express.json()); // Para parsing de application/json
 app.use(express.urlencoded({ extended: true })); // Para parsing de application/x-www-form-urlencoded
+
+app.listen(PORT, () => {
+  console.log(`Servidor node-cron rodando na porta ${PORT}`);
+  startCronJobs(); // Inicia o agendamento de tarefas
+});
 
 // Servir arquivos estáticos do diretório 'uploads'
 app.use(`/${UPLOAD_FOLDER}`, express.static(path.join(__dirname, UPLOAD_FOLDER)));

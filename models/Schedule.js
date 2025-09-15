@@ -16,8 +16,7 @@ const ScheduleSchema = new mongoose.Schema({
     default: Date.now,
   },
   isActive: {
-    type:
-     Boolean,
+    type: Boolean,
     default: true,
   },
   author: {

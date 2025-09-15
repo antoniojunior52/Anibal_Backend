@@ -5,7 +5,6 @@ const EventSchema = new mongoose.Schema({
   date: {
     type: Date,
     required: true,
-    expires: 0,
   },
   title: {
     type: String,
@@ -19,6 +18,10 @@ const EventSchema = new mongoose.Schema({
   authorEmail: {
     type: String,
     required: true,
+  },
+  isActive:{
+    type: Boolean,
+    default: true,
   },
   // --- Fim da alteração ---
 }, { timestamps: true });
