@@ -139,28 +139,22 @@ const forgotPassword = async (req, res) => {
 
     await user.save();
 
-    // Crie o URL de redefinição
-    // Em desenvolvimento, aponte para a porta do frontend (ex: 3000)
-    // Em produção, use o host do backend ou o domínio configurado
     const frontendBaseUrl = process.env.NODE_ENV === 'production'
-      ? `${req.protocol}://${req.get('host')}` // Em produção, pode ser o mesmo host do backend ou um CDN
-      : 'http://localhost:3000'; // Em desenvolvimento, a URL do seu React App (porta 3000)
+      ? `${req.protocol}://${req.get('host')}` 
+      : 'http://localhost:3000'; 
 
     const resetUrl = `${frontendBaseUrl}/reset-password/${resetToken}`;
-    const schoolName = "E.E Profº Anibal do Prado e Silva"; // Nome da sua escola
-    // URL ABSOLUTO para o logótipo (substitua por um URL real do seu logótipo hospedado)
-    const logoUrl = "https://i.imgur.com/your-actual-logo.jpg"; // EX: "https://seusite.com/logo.png"
+    const schoolName = "E.E Profº Anibal do Prado e Silva";
+    // const logoUrl = "https://i.imgur.com/your-actual-logo.jpg"; 
 
-    // Conteúdo HTML para o email
     const htmlMessage = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 20px auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
         <div style="background-color: #4455a3; color: white; padding: 20px; text-align: center;">
-          <img src="${logoUrl}" alt="Logo da Escola" style="max-width: 80px; margin-bottom: 10px; border-radius: 50%;">
           <h1 style="margin: 0; font-size: 24px;">${schoolName}</h1>
         </div>
         <div style="padding: 30px;">
           <p>Olá,</p>
-          <p>Você está recebendo este e-mail porque você (ou alguém) solicitou a redefinição da senha da sua conta no <strong>${schoolName}</strong>.</p>
+          <p>Você está recebendo este e-mail porque você solicitou a redefinição da senha da sua conta no <strong>${schoolName}</strong>.</p>
           <p>Para redefinir sua senha, por favor, clique no botão abaixo:</p>
           <p style="text-align: center; margin: 30px 0;">
             <a href="${resetUrl}" style="background-color: #ec9c30; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold;">
@@ -179,34 +173,26 @@ const forgotPassword = async (req, res) => {
 
     // Send email (configure your nodemailer transporter)
     const transporter = nodemailer.createTransport({
-      // Configure your email service here
-      // Example for Gmail:
       service: 'gmail',
       auth: {
-        user: process.env.EMAIL_USERNAME, // Your email
-        pass: process.env.EMAIL_PASSWORD, // Your email password or app password
+        user: process.env.EMAIL_USERNAME, 
+        pass: process.env.EMAIL_PASSWORD, 
       },
-      // Descomente e configure se estiver a usar um provedor SMTP diferente do Gmail
-      /*
-      host: 'smtp.example.com',
-      port: 587,
-      secure: false, // true for 465, false for other ports
-      */
     });
 
     const mailOptions = {
       from: process.env.EMAIL_USERNAME,
       to: user.email,
-      subject: 'Redefinição de Senha - ' + schoolName, // Assunto mais descritivo
-      html: htmlMessage, // Enviar como HTML
+      subject: 'Redefinição de Senha - ' + schoolName, 
+      html: htmlMessage, 
     };
 
     transporter.sendMail(mailOptions, (error, info) => {
       if (error) {
-        console.error('Error sending email:', error);
+        console.error('Erro ao enviar o email:', error);
         user.resetPasswordToken = undefined;
         user.resetPasswordExpire = undefined;
-        user.save(); // Revert token if email fails
+        user.save(); 
         return res.status(500).json({ msg: 'Email não pode ser enviado' });
       }
       console.log('Email enviado:', info.response);
