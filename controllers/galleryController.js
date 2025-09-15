@@ -6,7 +6,7 @@ const sharp = require('sharp'); // Importar a biblioteca sharp
 
 const getGalleryImages = async (req, res) => {
   try {
-    const images = await Gallery.find().sort({ uploadedAt: -1 });
+    const images = await Gallery.find({isActive: true}).sort({ uploadedAt: -1 });
     res.json(images);
   } catch (error) {
     res.status(500).json({ msg: 'Erro ao buscar imagens da galeria.' });
@@ -74,22 +74,17 @@ const uploadGalleryImage = async (req, res) => {
 
 const deleteGalleryImage = async (req, res) => {
   const { id } = req.params;
-  try {
-    const image = await Gallery.findById(id);
-    if (!image) {
-      return res.status(404).json({ msg: 'Imagem não encontrada.' });
+    try {
+      const event = await Gallery.findByIdAndUpdate(id, { isActive: false }, { new: true });
+  
+      if (!event) {
+        return res.status(404).json({ msg: 'Imagem não encontrada.' });
+      }
+  
+      res.json({ msg: 'Imagem inativada com sucesso.', event });
+    } catch (error) {
+      res.status(500).json({ msg: 'Erro ao inativar a imagem.' });
     }
-    if (image.url) {
-      const imagePath = path.join(__dirname, '..', image.url);
-      fs.unlink(imagePath, (err) => {
-        if (err) console.error('Erro ao deletar o arquivo de imagem:', err);
-      });
-    }
-    await image.deleteOne();
-    res.json({ msg: 'Imagem removida.' });
-  } catch (error) {
-    res.status(500).json({ msg: 'Erro ao remover a imagem.' });
-  }
 };
 
 module.exports = {
