@@ -5,27 +5,27 @@ const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 
-// Generate JWT
+// Gerar JWT
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: '1d', // Token expires in 1 day
+    expiresIn: '1d', // Token expira em um dia
   });
 };
 
-// @desc    Register a new user by admin
+// @desc    Registrar novo usario pelo admin
 // @route   POST /api/auth/register-by-admin
-// @access  Private (Admin only)
+// @access  Privado (Admin apenas)
 const registerUserByAdmin = async (req, res) => {
   const { name, email, password, role, isAdmin, isSecretaria } = req.body;
 
   try {
-    // Check if user already exists
+    // Checar se o usuário existe
     let user = await User.findOne({ email });
     if (user) {
       return res.status(400).json({ msg: 'Usuário já existe.' });
     }
 
-    // Create user
+    // Criar user
     user = await User.create({
       name,
       email,
