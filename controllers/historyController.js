@@ -6,7 +6,7 @@ const History = require('../models/History');
 // @access  Public
 const getHistory = async (req, res) => {
   try {
-    const history = await History.find().sort({ year: 1 }); // Sort by year ascending
+    const history = await History.find({isActive: true}).sort({ year: 1 }); // Sort by year ascending
     res.json(history);
   } catch (error) {
     res.status(500).json({ msg: 'Erro ao buscar itens de história.' });
@@ -62,20 +62,17 @@ const updateHistory = async (req, res) => {
 // @access  Private (Admin only)
 const deleteHistory = async (req, res) => {
   const { id } = req.params;
-
-  try {
-    const historyItem = await History.findById(id);
-
-    if (!historyItem) {
-      return res.status(404).json({ msg: 'Item de história não encontrado.' });
-    }
-
-    await historyItem.deleteOne();
-    res.status(200).json({ msg: 'Item de história removido.' });
-
-  } catch (error) {
-    res.status(500).json({ msg: 'Erro ao remover item de história.' });
-  }
+    try {
+      const history = await History.findByIdAndUpdate(id, { isActive: false }, { new: true });
+  
+      if (!history) {
+        return res.status(404).json({ msg: 'História não encontrada.' });
+      }
+  
+      res.json({ msg: 'História inativada com sucesso.', history });
+    } catch (error) {
+      res.status(500).json({ msg: 'Erro ao inativar a história.' });
+    }
 };
 
 module.exports = {

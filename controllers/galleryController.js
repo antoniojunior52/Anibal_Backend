@@ -75,13 +75,13 @@ const uploadGalleryImage = async (req, res) => {
 const deleteGalleryImage = async (req, res) => {
   const { id } = req.params;
     try {
-      const event = await Gallery.findByIdAndUpdate(id, { isActive: false }, { new: true });
+      const gallery = await Gallery.findByIdAndUpdate(id, { isActive: false }, { new: true });
   
-      if (!event) {
+      if (!gallery) {
         return res.status(404).json({ msg: 'Imagem não encontrada.' });
       }
   
-      res.json({ msg: 'Imagem inativada com sucesso.', event });
+      res.json({ msg: 'Imagem inativada com sucesso.', gallery });
     } catch (error) {
       res.status(500).json({ msg: 'Erro ao inativar a imagem.' });
     }
