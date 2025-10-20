@@ -3,14 +3,13 @@ const mongoose = require('mongoose');
 
 const GallerySchema = new mongoose.Schema({
   url: {
-    type: String, // Store path to image
+    type: String, // Caminho para a imagem
     required: true,
   },
   caption: {
     type: String,
     required: true,
   },
-  // --- Adicionado o campo para o e-mail do autor ---
   authorEmail: {
     type: String,
     required: true,
@@ -19,7 +18,12 @@ const GallerySchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
-  // --- Fim da alteração ---
+  // Campo que associa esta imagem a um álbum específico
+  album: { 
+    type: String, 
+    required: [true, 'O nome do álbum é obrigatório.'],
+    trim: true,
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Gallery', GallerySchema);

@@ -2,7 +2,7 @@
 const Gallery = require('../models/Gallery');
 const fs = require('fs');
 const path = require('path');
-const sharp = require('sharp'); // Importar a biblioteca sharp
+const sharp = require('sharp');
 
 const getGalleryImages = async (req, res) => {
   try {
@@ -14,61 +14,79 @@ const getGalleryImages = async (req, res) => {
 };
 
 const uploadGalleryImage = async (req, res) => {
-  const { caption } = req.body;
+  const { album } = req.body;
   const files = req.files;
 
   if (!files || files.length === 0) {
     return res.status(400).json({ msg: 'Pelo menos um arquivo de imagem é obrigatório.' });
   }
+  if (!album) {
+    return res.status(400).json({ msg: 'O nome do álbum é obrigatório.' });
+  }
 
   const uploadedImages = [];
-  const processedFiles = [];
+  const filesToDelete = [];
 
   try {
     for (const file of files) {
-      const tempImagePath = file.path;
-      const filename = `${file.filename.split('.')[0]}_optimized.webp`;
-      const finalImagePath = path.join(__dirname, '..', 'uploads', filename);
-      const webPath = `/uploads/${filename}`;
+      filesToDelete.push(file.path); // Adicionar ficheiro original à lista de exclusão
 
-      // Processa a imagem com sharp: redimensiona e converte para WebP
-      await sharp(tempImagePath)
-        .resize(300) // Redimensiona para uma largura de 800px
-        .webp({ quality: 80 }) // Converte para WebP com 80% de qualidade
-        .toFile(finalImagePath); // Salva o novo arquivo
+      const originalName = file.filename.split('.')[0];
+      
+      // Nomes e caminhos para a imagem em alta resolução e a miniatura
+      const highResFilename = `${originalName}_large.webp`;
+      const thumbFilename = `${originalName}_thumb.webp`;
+      const highResFinalPath = path.join(__dirname, '..', 'uploads', highResFilename);
+      const thumbFinalPath = path.join(__dirname, '..', 'uploads', thumbFilename);
+      const highResWebPath = `/uploads/${highResFilename}`;
+      const thumbWebPath = `/uploads/${thumbFilename}`;
 
-      // Remove o arquivo temporário original após o processamento
-      fs.unlinkSync(tempImagePath);
+      filesToDelete.push(highResFinalPath, thumbFinalPath); // Adicionar novos ficheiros à lista de exclusão em caso de erro
+
+      // Processar e guardar a imagem em alta resolução (máx 1920px de largura)
+      await sharp(file.path)
+        .resize(1920, null, { withoutEnlargement: true })
+        .webp({ quality: 85 })
+        .toFile(highResFinalPath);
+
+      // Processar e guardar a miniatura (400px de largura)
+      await sharp(file.path)
+        .resize(400)
+        .webp({ quality: 75 })
+        .toFile(thumbFinalPath);
       
       const newImage = await Gallery.create({ 
-        url: webPath, 
-        caption,
+        url: highResWebPath,         // Caminho para a imagem grande
+        thumbnailUrl: thumbWebPath,  // Caminho para a miniatura
+        album,
+        caption: album,
         authorEmail: req.user.email,
       });
       uploadedImages.push(newImage);
-      processedFiles.push(finalImagePath); // Adiciona o novo caminho para o array de arquivos processados
     }
+    
+    // Limpar apenas o ficheiro temporário original após sucesso
+    files.forEach(file => fs.unlinkSync(file.path));
+
     res.status(201).json(uploadedImages);
   } catch (error) {
-    // Se ocorrer um erro, tente remover os arquivos processados para evitar lixo
-    processedFiles.forEach(filepath => {
-      if (fs.existsSync(filepath)) {
-        fs.unlink(filepath, (err) => {
-          if (err) console.error('Erro ao deletar o arquivo otimizado:', err);
-        });
-      }
+    // Se ocorrer um erro, remover todos os ficheiros criados (temporários e processados)
+    filesToDelete.forEach(filepath => {
+      if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
     });
-    // Tente remover arquivos temporários que não foram processados
-    if (files) {
-      files.forEach(file => {
-        if (fs.existsSync(file.path)) {
-          fs.unlink(file.path, (err) => {
-            if (err) console.error('Erro ao deletar o arquivo enviado:', err);
-          });
-        }
-      });
-    }
+    console.error('Erro no upload da galeria:', error);
     res.status(500).json({ msg: 'Erro ao fazer upload das imagens. Falha no processamento.' });
+  }
+};
+
+const deleteGalleryAlbum = async (req, res) => {
+  const { albumName } = req.params;
+  try {
+    const decodedAlbumName = decodeURIComponent(albumName);
+    await Gallery.updateMany({ album: decodedAlbumName }, { $set: { isActive: false } });
+    res.json({ msg: `Álbum "${decodedAlbumName}" inativado com sucesso.` });
+  } catch (error) {
+    res.status(500).json({ msg: 'Erro ao inativar o álbum.' });
   }
 };
 
@@ -76,11 +94,9 @@ const deleteGalleryImage = async (req, res) => {
   const { id } = req.params;
     try {
       const gallery = await Gallery.findByIdAndUpdate(id, { isActive: false }, { new: true });
-  
       if (!gallery) {
         return res.status(404).json({ msg: 'Imagem não encontrada.' });
       }
-  
       res.json({ msg: 'Imagem inativada com sucesso.', gallery });
     } catch (error) {
       res.status(500).json({ msg: 'Erro ao inativar a imagem.' });
@@ -91,4 +107,6 @@ module.exports = {
   getGalleryImages,
   uploadGalleryImage,
   deleteGalleryImage,
+  deleteGalleryAlbum,
 };
+
