@@ -18,7 +18,8 @@ const UserSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['Professor(a)', 'Secretaria', 'Coordenação', 'Diretora', 'Admin'],
+    // ADICIONADO "Vice-Diretora"
+    enum: ['Professor(a)', 'Secretaria', 'Coordenação', 'Diretora', 'Vice-Diretora', 'Admin'],
     default: 'Professor(a)',
   },
   isAdmin: {
@@ -29,6 +30,18 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  // CAMPOS DE VERIFICAÇÃO ADICIONADOS
+  isVerified: {
+    type: Boolean,
+    default: false,
+  },
+  verificationCode: {
+    type: String,
+  },
+  verificationCodeExpire: {
+    type: Date,
+  },
+  // CAMPOS DE RESET DE SENHA (EXISTENTES)
   resetPasswordToken: String,
   resetPasswordExpire: Date,
 }, { timestamps: true });

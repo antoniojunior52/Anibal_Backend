@@ -1,9 +1,8 @@
 // controllers/authController.js
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const { sendVerificationEmail, sendResetPasswordEmail } = require('../utils/email'); 
 
 // Gerar JWT
 const generateToken = (id) => {
@@ -12,20 +11,38 @@ const generateToken = (id) => {
   });
 };
 
+// Função helper para gerar código de 6 dígitos
+const generateVerificationCode = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
 // @desc    Registrar novo usario pelo admin
 // @route   POST /api/auth/register-by-admin
 // @access  Privado (Admin apenas)
 const registerUserByAdmin = async (req, res) => {
-  const { name, email, password, role, isAdmin, isSecretaria } = req.body;
+  // *** 1. OBTER O NOVO VALOR DO BODY ***
+  const { name, email, password, role, isAdmin, isSecretaria, isManuallyVerified } = req.body;
 
   try {
-    // Checar se o usuário existe
     let user = await User.findOne({ email });
     if (user) {
       return res.status(400).json({ msg: 'Usuário já existe.' });
     }
 
-    // Criar user
+    // *** 2. LÓGICA CONDICIONAL ***
+    let verificationCode = undefined;
+    let verificationCodeExpire = undefined;
+    let userIsVerified = isManuallyVerified || false; // Define como verificado se o admin marcou
+    let msg = 'Usuário criado e verificado manualmente.';
+
+    // Se NÃO for verificado manualmente, segue o fluxo normal
+    if (!isManuallyVerified) {
+      verificationCode = generateVerificationCode();
+      verificationCodeExpire = Date.now() + 90000; // 1.5 minutos (90000 ms)
+      userIsVerified = false;
+      msg = 'Usuário criado. E-mail de verificação enviado.';
+    }
+    
     user = await User.create({
       name,
       email,
@@ -33,7 +50,15 @@ const registerUserByAdmin = async (req, res) => {
       role,
       isAdmin: isAdmin || false,
       isSecretaria: isSecretaria || false,
+      isVerified: userIsVerified, // Salva o status de verificação
+      verificationCode: verificationCode,
+      verificationCodeExpire: verificationCodeExpire,
     });
+
+    // *** 3. SÓ ENVIAR E-MAIL SE NÃO FOI VERIFICADO MANUALMENTE ***
+    if (!isManuallyVerified) {
+      await sendVerificationEmail(email, verificationCode);
+    }
 
     res.status(201).json({
       _id: user._id,
@@ -42,6 +67,7 @@ const registerUserByAdmin = async (req, res) => {
       role: user.role,
       isAdmin: user.isAdmin,
       isSecretaria: user.isSecretaria,
+      msg: msg, // Envia a mensagem correta
     });
 
   } catch (error) {
@@ -56,13 +82,29 @@ const publicRegisterUser = async (req, res) => {
   const { name, email, password } = req.body;
 
   try {
-    // Check if user already exists
     let user = await User.findOne({ email });
-    if (user) {
+
+    // Se o usuário existe E não está verificado, apenas atualiza o código e reenvia
+    if (user && !user.isVerified) {
+      const code = generateVerificationCode();
+      user.verificationCode = code;
+      user.verificationCodeExpire = Date.now() + 90000; // 1.5 minutos (90000 ms)
+      await user.save();
+      await sendVerificationEmail(email, code);
+      return res.status(200).json({ 
+        msg: 'Usuário já registrado. Um novo código de verificação foi enviado.', 
+        email: user.email 
+      });
+    }
+
+    if (user && user.isVerified) {
       return res.status(400).json({ msg: 'Usuário já existe.' });
     }
 
-    // Create user with default role (Professor(a)) and no admin/secretaria permissions
+    // Gerar código de verificação
+    const code = generateVerificationCode();
+
+    // Create user with default role and verification fields
     user = await User.create({
       name,
       email,
@@ -70,13 +112,17 @@ const publicRegisterUser = async (req, res) => {
       role: 'Professor(a)',
       isAdmin: false,
       isSecretaria: false,
+      isVerified: false,
+      verificationCode: code,
+      verificationCodeExpire: Date.now() + 90000, // 1.5 minutos (90000 ms)
     });
 
+    // Enviar e-mail de verificação
+    await sendVerificationEmail(email, code);
+
     res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
+      msg: 'Registro bem-sucedido. Verifique seu e-mail para ativar sua conta.',
+      email: user.email, // Retorna o e-mail para o frontend
     });
 
   } catch (error) {
@@ -103,6 +149,33 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ msg: 'Credenciais Inválidas' });
     }
 
+    // *** ESTA É A CORREÇÃO ***
+    if (!user.isVerified) {
+      // Se não for verificado, GERA e ENVIA um NOVO código
+      try {
+        const code = generateVerificationCode();
+        user.verificationCode = code;
+        user.verificationCodeExpire = Date.now() + 90000; // 1.5 minutos
+        await user.save();
+        
+        // Envia o e-mail
+        await sendVerificationEmail(email, code);
+        
+        // Retorna o 401 como antes, mas agora o e-mail foi enviado
+        return res.status(401).json({ 
+          msg: 'Sua conta não está verificada. Um novo código foi enviado para o seu e-mail.',
+          email: user.email,
+          needsVerification: true 
+        });
+      } catch (emailError) {
+        // Se o envio do e-mail falhar, informa o usuário.
+        console.error('Erro ao reenviar e-mail de verificação no login:', emailError);
+        return res.status(500).json({ msg: 'Sua conta não está verificada, mas falhamos ao enviar um novo código. Tente novamente mais tarde.' });
+      }
+    }
+    // *** FIM DA CORREÇÃO ***
+
+    // Se chegou aqui, está verificado e a senha está correta
     res.json({
       token: generateToken(user._id),
       user: {
@@ -132,72 +205,22 @@ const forgotPassword = async (req, res) => {
       return res.status(404).json({ msg: 'Não existe usuário com esse e-mail.' });
     }
 
-    // Generate reset token
     const resetToken = crypto.randomBytes(20).toString('hex');
     user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    user.resetPasswordExpire = Date.now() + 3600000; // 1 hour
+    user.resetPasswordExpire = Date.now() + 3600000; // 1 hour (sem alteração)
 
     await user.save();
 
-    const frontendBaseUrl = process.env.NODE_ENV === 'production'
-      ? `${req.protocol}://${req.get('host')}` 
-      : 'http://localhost:3000'; 
-
-    const resetUrl = `${frontendBaseUrl}/reset-password/${resetToken}`;
-    const schoolName = "E.E Profº Anibal do Prado e Silva";
-    // const logoUrl = "https://i.imgur.com/your-actual-logo.jpg"; 
-
-    const htmlMessage = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 20px auto; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-        <div style="background-color: #4455a3; color: white; padding: 20px; text-align: center;">
-          <h1 style="margin: 0; font-size: 24px;">${schoolName}</h1>
-        </div>
-        <div style="padding: 30px;">
-          <p>Olá,</p>
-          <p>Você está recebendo este e-mail porque você solicitou a redefinição da senha da sua conta no <strong>${schoolName}</strong>.</p>
-          <p>Para redefinir sua senha, por favor, clique no botão abaixo:</p>
-          <p style="text-align: center; margin: 30px 0;">
-            <a href="${resetUrl}" style="background-color: #ec9c30; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold;">
-              Redefinir Senha
-            </a>
-          </p>
-          <p>Este link de redefinição de senha é válido por 1 hora.</p>
-          <p>Se você não solicitou esta redefinição de senha, por favor, ignore este e-mail.</p>
-          <p>Atenciosamente,<br>A Equipe ${schoolName}</p>
-        </div>
-        <div style="background-color: #f3f4f6; color: #777; padding: 15px; text-align: center; font-size: 12px;">
-          <p>&copy; ${new Date().getFullYear()} ${schoolName}. Todos os direitos reservados.</p>
-        </div>
-      </div>
-    `;
-
-    // Send email (configure your nodemailer transporter)
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USERNAME, 
-        pass: process.env.EMAIL_PASSWORD, 
-      },
-    });
-
-    const mailOptions = {
-      from: process.env.EMAIL_USERNAME,
-      to: user.email,
-      subject: 'Redefinição de Senha - ' + schoolName, 
-      html: htmlMessage, 
-    };
-
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error('Erro ao enviar o email:', error);
-        user.resetPasswordToken = undefined;
-        user.resetPasswordExpire = undefined;
-        user.save(); 
-        return res.status(500).json({ msg: 'Email não pode ser enviado' });
-      }
-      console.log('Email enviado:', info.response);
+    try {
+      await sendResetPasswordEmail(user.email, resetToken);
       res.status(200).json({ msg: 'Email enviado com sucesso' });
-    });
+    } catch (emailError) {
+      console.error('Erro ao enviar o email:', emailError);
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save(); 
+      return res.status(500).json({ msg: 'Email não pode ser enviado' });
+    }
 
   } catch (error) {
     res.status(500).json({ msg: error.message });
@@ -217,7 +240,7 @@ const resetPassword = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(400).json({ msg: 'Inválido ou Expirado, resete o tokem' });
+      return res.status(400).json({ msg: 'Token inválido ou expirado.' });
     }
 
     user.password = req.body.password;
@@ -232,10 +255,101 @@ const resetPassword = async (req, res) => {
   }
 };
 
+// @desc    Verify user email
+// @route   POST /api/auth/verify-email
+// @access  Public
+const verifyEmail = async (req, res) => {
+  const { email, code } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ msg: 'Usuário não encontrado.' });
+    }
+
+    if (user.verificationCode !== code) {
+      return res.status(400).json({ msg: 'Código de verificação inválido.' });
+    }
+
+    if (user.verificationCodeExpire < Date.now()) {
+      return res.status(400).json({ msg: 'Código expirado. Solicite um novo.' });
+    }
+
+    user.isVerified = true;
+    user.verificationCode = undefined;
+    user.verificationCodeExpire = undefined;
+    await user.save();
+
+    res.status(200).json({ msg: 'E-mail verificado com sucesso!' });
+
+  } catch (error) {
+    res.status(500).json({ msg: error.message });
+  }
+};
+
+// @desc    Resend verification code
+// @route   POST /api/auth/resend-code
+// @access  Public
+const resendCode = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ msg: 'Usuário não encontrado.' });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ msg: 'Este e-mail já foi verificado.' });
+    }
+
+    const code = generateVerificationCode();
+    user.verificationCode = code;
+    user.verificationCodeExpire = Date.now() + 90000; // 1.5 minutos (90000 ms)
+    await user.save();
+
+    await sendVerificationEmail(email, code);
+
+    res.status(200).json({ msg: 'Um novo código foi enviado para o seu e-mail.' });
+
+  } catch (error) {
+    res.status(500).json({ msg: error.message });
+  }
+};
+
+// *** 4. NOVA FUNÇÃO ADICIONADA ***
+// @desc    Check if email exists
+// @route   POST /api/auth/check-email
+// @access  Public (ou pode ser 'protect' se quiser)
+const checkEmail = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (user) {
+      // Retorna 400 (Bad Request) se o e-mail já estiver em uso
+      return res.status(400).json({ msg: 'Este e-mail já está em uso.' });
+    }
+
+    // Retorna 200 (OK) se o e-mail estiver disponível
+    res.status(200).json({ msg: 'E-mail disponível.' });
+
+  } catch (error) {
+    res.status(500).json({ msg: 'Erro ao verificar e-mail.' });
+  }
+};
+
+
 module.exports = {
   registerUserByAdmin,
   publicRegisterUser,
   loginUser,
   forgotPassword,
   resetPassword,
+  verifyEmail,
+  resendCode,
+  checkEmail, // *** 5. NOVA FUNÇÃO EXPORTADA ***
 };

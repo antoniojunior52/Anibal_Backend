@@ -6,6 +6,11 @@ const GallerySchema = new mongoose.Schema({
     type: String, // Caminho para a imagem
     required: true,
   },
+  // ADICIONE ESTA LINHA:
+  thumbnailUrl: {
+    type: String, // Caminho para a miniatura (thumbnail)
+    required: true,
+  },
   caption: {
     type: String,
     required: true,
