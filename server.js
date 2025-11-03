@@ -8,7 +8,7 @@ const { startCronJobs } = require('./jobs/cronJobs');
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
-const userRoutes = require('./routes/userRoutes'); // Caminho corrigido
+const userRoutes = require('./routes/userRoutes');
 const newsRoutes = require('./routes/newsRoutes');
 const noticeRoutes = require('./routes/noticeRoutes');
 const teamRoutes = require('./routes/teamRoutes');
@@ -17,9 +17,11 @@ const eventRoutes = require('./routes/eventRoutes');
 const galleryRoutes = require('./routes/galleryRoutes');
 const menuRoutes = require('./routes/menuRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
-const fileRoutes = require('./routes/fileRoutes'); // Para uploads de arquivos gerais
+const fileRoutes = require('./routes/fileRoutes');
+const chatRoutes = require('./routes/chatRoutes'); // <<-- 1. IMPORTAMOS A NOVA ROTA DO CHAT
 
 const app = express();
+// ATENÇÃO: Havia uma duplicação de app.listen. Removi uma delas.
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 const UPLOAD_FOLDER = process.env.UPLOAD_FOLDER || 'uploads';
@@ -29,11 +31,6 @@ app.use(cors());
 app.use(express.json()); // Para parsing de application/json
 app.use(express.urlencoded({ extended: true })); // Para parsing de application/x-www-form-urlencoded
 
-app.listen(PORT, () => {
-  console.log(`Servidor node-cron rodando na porta ${PORT}`);
-  startCronJobs(); // Inicia o agendamento de tarefas
-});
-
 // Servir arquivos estáticos do diretório 'uploads'
 app.use(`/${UPLOAD_FOLDER}`, express.static(path.join(__dirname, UPLOAD_FOLDER)));
 
@@ -42,29 +39,8 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log('MongoDB conectado com sucesso'))
   .catch(err => console.error('Erro de conexão com o MongoDB:', err));
 
-// --- Rota para o Chatbot (Adicionada) ---
-app.post("/api/chat", async (req, res) => {
-  const { message } = req.body;
-  let reply = "Desculpe, não consegui encontrar informações sobre isso. Tente perguntar sobre 'eventos', 'horários' ou 'história'.";
-
-  if (message) {
-    const normalizedMessage = message.toLowerCase().trim();
-
-    if (normalizedMessage.includes("evento")) {
-      reply = "Estamos a planear uma feira de ciências incrível para o final do ano letivo. Fique atento às nossas notícias para mais detalhes!";
-    } else if (normalizedMessage.includes("história")) {
-      reply = "A nossa escola foi fundada em 1985 com a missão de promover a educação de qualidade na comunidade. Você pode ler mais sobre ela na página 'História'.";
-    } else if (normalizedMessage.includes("horários") || normalizedMessage.includes("aulas")) {
-      reply = "Os horários das aulas estão disponíveis na secção 'Horários' do nosso site. Pode fazer o download do arquivo em PDF lá.";
-    } else if (normalizedMessage.includes("equipe") || normalizedMessage.includes("professores")) {
-      reply = "Temos uma equipa de professores altamente qualificada e dedicada. Conheça a nossa equipa na página 'Professores' do site.";
-    }
-  }
-
-  res.json({ reply });
-});
-// --- Fim da Rota do Chatbot ---
-
+// --- Rota para o Chatbot (REMOVIDA DAQUI) ---
+// O código antigo que estava aqui foi removido para ser gerenciado pelo controlador.
 
 // Usar rotas
 app.use('/api/auth', authRoutes);
@@ -78,29 +54,15 @@ app.use('/api/gallery', galleryRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/files', fileRoutes);
+app.use('/api/chat', chatRoutes); // <<-- 2. USAMOS A NOVA ROTA DO CHAT AQUI
 
 // --- Rota Catch-All para Aplicação Frontend ---
-// Esta parte é crucial para que as rotas do React Router funcionem ao recarregar a página ou aceder diretamente.
 if (process.env.NODE_ENV === 'production') {
-  // Em produção, servir a pasta 'build' gerada pelo React
-  // Ajuste o caminho 'build' se a sua pasta de build tiver outro nome
-  app.use(express.static(path.join(__dirname, '..', 'build'))); 
-
+  app.use(express.static(path.join(__dirname, '..', 'build')));
   app.get('*', (req, res) => {
     res.sendFile(path.resolve(__dirname, '..', 'build', 'index.html'));
   });
-} else {
-  // EM DESENVOLVIMENTO:
-  // Removida a rota 'app.get('*')' para o ambiente de desenvolvimento.
-  // Em um setup típico de React + Express, o servidor de desenvolvimento do React (npm start)
-  // lida com todas as rotas do frontend (ex: /reset-password/:token).
-  // O servidor Express só precisa lidar com as rotas da API (/api/*) e servir seus próprios arquivos estáticos (uploads).
-  // A presença de um 'app.get('*')' no Express em desenvolvimento pode causar conflitos
-  // e o 'TypeError: Missing parameter name' que está a ver.
-  // Ao remover este bloco, o Express irá simplesmente ignorar requisições para rotas de frontend,
-  // e o seu servidor de desenvolvimento do React deverá tratá-las.
 }
-
 
 // Middleware básico de tratamento de erros
 app.use((err, req, res, next) => {
@@ -111,4 +73,5 @@ app.use((err, req, res, next) => {
 // Iniciar o servidor
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
-})
+  startCronJobs(); // Inicia o agendamento de tarefas
+});
