@@ -54,15 +54,23 @@ const updateUserProfile = asyncHandler(async (req, res) => {
   let needsReverification = false;
 
   if (user) {
+    // <<< VERIFICAÇÃO ADICIONADA AQUI >>>
+    // Impede que o usuário protegido altere seu próprio perfil (nome, email).
+    if (user.isProtected) {
+      res.status(403);
+      throw new Error('Ação proibida. O perfil de usuário protegido não pode ser modificado.');
+    }
+    // <<< FIM DA VERIFICAÇÃO >>>
+
     user.name = req.body.name || user.name;
-    
+
     if (req.body.email && req.body.email !== user.email) {
       const emailExists = await User.findOne({ email: req.body.email });
       if (emailExists && emailExists._id.toString() !== user._id.toString()) {
         res.status(400);
         throw new Error('Email já está em uso.');
       }
-      
+
       // *** LÓGICA DE RE-VERIFICAÇÃO ADICIONADA ***
       try {
         const code = generateVerificationCode();
@@ -70,13 +78,14 @@ const updateUserProfile = asyncHandler(async (req, res) => {
         user.isVerified = false;
         user.verificationCode = code;
         user.verificationCodeExpire = Date.now() + 90000; // 1.5 minutos (90000 ms)
-        
+
         await sendVerificationEmail(user.email, code);
         needsReverification = true; // Sinaliza ao frontend
-
       } catch (emailError) {
         res.status(500);
-        throw new Error('O perfil foi salvo, mas o e-mail de verificação não pôde ser enviado.');
+        throw new Error(
+          'O perfil foi salvo, mas o e-mail de verificação não pôde ser enviado.'
+        );
       }
     }
 
@@ -92,7 +101,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
       needsReverification: needsReverification, // Envia a flag
     });
   } else {
-    res.status(4404);
+    res.status(404); // Corrigido de 4404 para 404
     throw new Error('Usuário não encontrado');
   }
 });
@@ -101,6 +110,11 @@ const updateUserProfile = asyncHandler(async (req, res) => {
 // @route   PUT /api/users/change-password
 // @access  Private
 const changePassword = async (req, res) => {
+  // NOTA: Esta rota usa 'req.user._id', o que significa que um usuário
+  // só pode alterar a *própria* senha.
+  // Se o usuário protegido for hackeado, ele *pode* alterar a própria senha.
+  // Isso é o comportamento esperado. A proteção 'isProtected'
+  // visa impedir que *outros* usuários alterem ou excluam o admin.
   const { currentPassword, newPassword } = req.body;
 
   try {
@@ -123,7 +137,6 @@ const changePassword = async (req, res) => {
   }
 };
 
-
 // @desc    Update user permissions (Admin only)
 // @route   PUT /api/users/:id
 // @access  Private (Admin only)
@@ -138,8 +151,19 @@ const updateUserPermissions = async (req, res) => {
       return res.status(404).json({ msg: 'Usuário não encontrado.' });
     }
 
+    // <<< VERIFICAÇÃO ADICIONADA AQUI >>>
+    // Impede que o usuário protegido tenha suas permissões alteradas por outros.
+    if (user.isProtected) {
+      return res.status(403).json({
+        msg: 'Ação proibida. Este usuário é protegido e não pode ser modificado.',
+      });
+    }
+    // <<< FIM DA VERIFICAÇÃO >>>
+
     if (req.user._id.toString() === id && isAdmin === false) {
-      return res.status(403).json({ msg: 'Não é possível revogar seu próprio acesso de administrador.' });
+      return res.status(403).json({
+        msg: 'Não é possível revogar seu próprio acesso de administrador.',
+      });
     }
 
     if (typeof isAdmin === 'boolean') user.isAdmin = isAdmin;
@@ -147,7 +171,7 @@ const updateUserPermissions = async (req, res) => {
     if (role) user.role = role;
 
     const updatedUser = await user.save();
-    
+
     // Retorna o usuário atualizado sem a senha
     const userObject = updatedUser.toObject();
     delete userObject.password;
@@ -155,12 +179,11 @@ const updateUserPermissions = async (req, res) => {
     delete userObject.verificationCodeExpire;
     delete userObject.resetPasswordToken;
     delete userObject.resetPasswordExpire;
-    
-    res.json({ 
-      msg: 'Permissões do usuário atualizadas.', 
-      user: userObject
-    });
 
+    res.json({
+      msg: 'Permissões do usuário atualizadas.',
+      user: userObject,
+    });
   } catch (error) {
     res.status(500).json({ msg: 'Erro ao atualizar as permissões do usuário.' });
   }
@@ -178,6 +201,15 @@ const deleteUser = async (req, res) => {
     if (!user) {
       return res.status(404).json({ msg: 'Usuário não encontrado.' });
     }
+
+    // <<< VERIFICAÇÃO ADICIONADA AQUI >>>
+    // Impede que o usuário protegido seja excluído.
+    if (user.isProtected) {
+      return res.status(403).json({
+        msg: 'Ação proibida. Este usuário não pode ser excluído.',
+      });
+    }
+    // <<< FIM DA VERIFICAÇÃO >>>
 
     if (req.user._id.toString() === id) {
       return res.status(403).json({ msg: 'Não é possível se excluir.' });

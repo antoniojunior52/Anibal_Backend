@@ -41,6 +41,10 @@ const UserSchema = new mongoose.Schema({
   verificationCodeExpire: {
     type: Date,
   },
+  isProtected: {
+    type: Boolean,
+    default: false
+  },  
   // CAMPOS DE RESET DE SENHA (EXISTENTES)
   resetPasswordToken: String,
   resetPasswordExpire: Date,
