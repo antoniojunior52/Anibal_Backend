@@ -13,7 +13,7 @@ const handleChatMessage = async (req, res) => {
 
     // Pega o modelo generativo (gemini-1.5-flash é o mais novo, rápido e eficiente)
     // Linha correta
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
     // O "Prompt de Sistema" é a instrução inicial que damos à IA.
     const systemPrompt = `Você é um assistente virtual para a escola "E.E. Profº Aníbal do Prado e Silva". Seu nome é Anibot. Você deve ser cordial, prestativo e informativo. Responda apenas a perguntas relacionadas à escola, como eventos, horários de aulas, história da escola, corpo docente e processo de matrícula. Se os usuários perguntarem sobre outros assuntos (como política, esportes ou tópicos não relacionados), recuse educadamente a resposta, dizendo que seu conhecimento é limitado a tópicos sobre a escola Aníbal.`;
