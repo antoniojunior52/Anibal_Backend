@@ -20,8 +20,8 @@ const generateVerificationCode = () => {
 // @route   POST /api/auth/register-by-admin
 // @access  Privado (Admin apenas)
 const registerUserByAdmin = async (req, res) => {
-  // *** 1. OBTER O NOVO VALOR DO BODY ***
-  const { name, email, password, role, isAdmin, isSecretaria, isManuallyVerified } = req.body;
+  // *** 1. REMOVIDO 'password' DO BODY ***
+  const { name, email, role, isAdmin, isSecretaria, isManuallyVerified } = req.body;
 
   try {
     let user = await User.findOne({ email });
@@ -29,11 +29,13 @@ const registerUserByAdmin = async (req, res) => {
       return res.status(400).json({ msg: 'Usuário já existe.' });
     }
 
-    // *** 2. LÓGICA CONDICIONAL ***
+    // *** 2. LÓGICA CONDICIONAL (JÁ ESTAVA CORRETA) ***
     let verificationCode = undefined;
     let verificationCodeExpire = undefined;
     let userIsVerified = isManuallyVerified || false; // Define como verificado se o admin marcou
-    let msg = 'Usuário criado e verificado manualmente.';
+    
+    // *** 3. MENSAGEM ATUALIZADA ***
+    let msg = 'Usuário criado e verificado. O usuário deve usar a função "Esqueceu a senha" para definir seu primeiro acesso.';
 
     // Se NÃO for verificado manualmente, segue o fluxo normal
     if (!isManuallyVerified) {
@@ -43,10 +45,13 @@ const registerUserByAdmin = async (req, res) => {
       msg = 'Usuário criado. E-mail de verificação enviado.';
     }
     
+    // *** 4. GERAR SENHA TEMPORÁRIA ALEATÓRIA ***
+    const tempPassword = crypto.randomBytes(20).toString('hex');
+    
     user = await User.create({
       name,
       email,
-      password,
+      password: tempPassword, // *** 5. USAR A SENHA GERADA ***
       role,
       isAdmin: isAdmin || false,
       isSecretaria: isSecretaria || false,
@@ -55,7 +60,7 @@ const registerUserByAdmin = async (req, res) => {
       verificationCodeExpire: verificationCodeExpire,
     });
 
-    // *** 3. SÓ ENVIAR E-MAIL SE NÃO FOI VERIFICADO MANUALMENTE ***
+    // *** 6. SÓ ENVIAR E-MAIL SE NÃO FOI VERIFICADO MANUALMENTE (JÁ ESTAVA CORRETO) ***
     if (!isManuallyVerified) {
       await sendVerificationEmail(email, verificationCode);
     }
@@ -149,7 +154,6 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ msg: 'Credenciais Inválidas' });
     }
 
-    // *** ESTA É A CORREÇÃO ***
     if (!user.isVerified) {
       // Se não for verificado, GERA e ENVIA um NOVO código
       try {
@@ -173,7 +177,6 @@ const loginUser = async (req, res) => {
         return res.status(500).json({ msg: 'Sua conta não está verificada, mas falhamos ao enviar um novo código. Tente novamente mais tarde.' });
       }
     }
-    // *** FIM DA CORREÇÃO ***
 
     // Se chegou aqui, está verificado e a senha está correta
     res.json({
@@ -319,7 +322,6 @@ const resendCode = async (req, res) => {
   }
 };
 
-// *** 4. NOVA FUNÇÃO ADICIONADA ***
 // @desc    Check if email exists
 // @route   POST /api/auth/check-email
 // @access  Public (ou pode ser 'protect' se quiser)
@@ -351,5 +353,5 @@ module.exports = {
   resetPassword,
   verifyEmail,
   resendCode,
-  checkEmail, // *** 5. NOVA FUNÇÃO EXPORTADA ***
+  checkEmail,
 };
