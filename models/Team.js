@@ -8,7 +8,7 @@ const TeamSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['Professor(a)', 'Diretora', 'Coordenador(a)'],
+    enum: ['Professor(a)', 'Diretora', 'Coordenador(a)', 'Vice-Diretora'],
     required: true,
   },
   subjects: {
