@@ -16,66 +16,82 @@ const generateVerificationCode = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-// @desc    Registrar novo usario pelo admin
+// @desc    Registrar novo usuário e enviar e-mail de definição de senha
 // @route   POST /api/auth/register-by-admin
 // @access  Privado (Admin apenas)
 const registerUserByAdmin = async (req, res) => {
-  // *** 1. REMOVIDO 'password' DO BODY ***
-  const { name, email, role, isAdmin, isSecretaria, isManuallyVerified } = req.body;
+  // 1. Obter dados do body
+  const { name, email, role, isAdmin, isSecretaria } = req.body;
 
   try {
+    // 2. Checar se o usuário já existe
     let user = await User.findOne({ email });
     if (user) {
       return res.status(400).json({ msg: 'Usuário já existe.' });
     }
 
-    // *** 2. LÓGICA CONDICIONAL (JÁ ESTAVA CORRETA) ***
-    let verificationCode = undefined;
-    let verificationCodeExpire = undefined;
-    let userIsVerified = isManuallyVerified || false; // Define como verificado se o admin marcou
+    // 3. Preparar dados para o novo usuário
     
-    // *** 3. MENSAGEM ATUALIZADA ***
-    let msg = 'Usuário criado e verificado. O usuário deve usar a função "Esqueceu a senha" para definir seu primeiro acesso.';
-
-    // Se NÃO for verificado manualmente, segue o fluxo normal
-    if (!isManuallyVerified) {
-      verificationCode = generateVerificationCode();
-      verificationCodeExpire = Date.now() + 90000; // 1.5 minutos (90000 ms)
-      userIsVerified = false;
-      msg = 'Usuário criado. E-mail de verificação enviado.';
-    }
-    
-    // *** 4. GERAR SENHA TEMPORÁRIA ALEATÓRIA ***
+    // Gerar uma senha temporária aleatória (necessária para criar o user no BD)
     const tempPassword = crypto.randomBytes(20).toString('hex');
+
+    // Gerar o token de redefinição de senha (lógica da forgotPassword)
+    const resetToken = crypto.randomBytes(20).toString('hex');
     
+    // Criar o hash do token para salvar no BD
+    const hashedResetToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+      
+    // Definir o tempo de expiração
+    const resetExpire = Date.now() + 3600000; // 1 hora
+
+    // 4. Criar o usuário no banco de dados
     user = await User.create({
       name,
       email,
-      password: tempPassword, // *** 5. USAR A SENHA GERADA ***
+      password: tempPassword, // Salva a senha temporária
       role,
       isAdmin: isAdmin || false,
       isSecretaria: isSecretaria || false,
-      isVerified: userIsVerified, // Salva o status de verificação
-      verificationCode: verificationCode,
-      verificationCodeExpire: verificationCodeExpire,
+      isVerified: true, // Usuário criado por admin já é considerado verificado
+      resetPasswordToken: hashedResetToken, // Salva o token de reset
+      resetPasswordExpire: resetExpire,     // Salva a expiração
     });
 
-    // *** 6. SÓ ENVIAR E-MAIL SE NÃO FOI VERIFICADO MANUALMENTE (JÁ ESTAVA CORRETO) ***
-    if (!isManuallyVerified) {
-      await sendVerificationEmail(email, verificationCode);
+    // 5. Tentar enviar o e-mail de definição de senha
+    try {
+      // Envia o e-mail com o token *original* (NÃO o hash)
+      await sendResetPasswordEmail(user.email, resetToken);
+
+      // 6a. Sucesso total (Usuário criado E e-mail enviado)
+      res.status(201).json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isAdmin: user.isAdmin,
+        isSecretaria: user.isSecretaria,
+        msg: 'Usuário criado. E-mail de definição de senha enviado com sucesso.',
+      });
+
+    } catch (emailError) {
+      // 6b. Sucesso parcial (Usuário criado, mas e-mail falhou)
+      console.error('Falha ao enviar e-mail de definição de senha após cadastro:', emailError);
+      
+      // O usuário foi criado, mas o e-mail falhou.
+      // O status 207 (Multi-Status) indica um sucesso parcial.
+      res.status(207).json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        msg: 'Usuário criado com sucesso, mas falha ao enviar o e-mail. O usuário precisará usar a função "Esqueceu a senha" manualmente.',
+      });
     }
 
-    res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      isAdmin: user.isAdmin,
-      isSecretaria: user.isSecretaria,
-      msg: msg, // Envia a mensagem correta
-    });
-
   } catch (error) {
+    // 7. Erro principal (Falha ao checar ou criar usuário no BD)
     res.status(500).json({ msg: error.message });
   }
 };
