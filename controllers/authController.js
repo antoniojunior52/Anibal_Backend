@@ -307,37 +307,6 @@ const verifyEmail = async (req, res) => {
   }
 };
 
-// @desc    Resend verification code
-// @route   POST /api/auth/resend-code
-// @access  Public
-const resendCode = async (req, res) => {
-  const { email } = req.body;
-
-  try {
-    const user = await User.findOne({ email });
-
-    if (!user) {
-      return res.status(404).json({ msg: 'Usuário não encontrado.' });
-    }
-
-    if (user.isVerified) {
-      return res.status(400).json({ msg: 'Este e-mail já foi verificado.' });
-    }
-
-    const code = generateVerificationCode();
-    user.verificationCode = code;
-    user.verificationCodeExpire = Date.now() + 90000; // 1.5 minutos (90000 ms)
-    await user.save();
-
-    await sendVerificationEmail(email, code);
-
-    res.status(200).json({ msg: 'Um novo código foi enviado para o seu e-mail.' });
-
-  } catch (error) {
-    res.status(500).json({ msg: error.message });
-  }
-};
-
 // @desc    Check if email exists
 // @route   POST /api/auth/check-email
 // @access  Public (ou pode ser 'protect' se quiser)
@@ -368,6 +337,5 @@ module.exports = {
   forgotPassword,
   resetPassword,
   verifyEmail,
-  resendCode,
   checkEmail,
 };

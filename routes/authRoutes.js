@@ -7,7 +7,7 @@ const {
   forgotPassword,
   resetPassword,
   verifyEmail,
-  resendCode,
+  //resendCode,
   checkEmail, // *** 1. IMPORTA A NOVA FUNÇÃO ***
 } = require('../controllers/authController');
 const { protect, authorize } = require('../middleware/auth');
@@ -21,7 +21,7 @@ router.post('/forgot-password', forgotPassword);
 router.put('/reset-password/:token', resetPassword);
 
 router.post('/verify-email', verifyEmail);
-router.post('/resend-code', resendCode);
+//router.post('/resend-code', resendCode);
 
 // *** 2. ADICIONA A NOVA ROTA ***
 // Esta rota pode ser pública, pois não expõe dados sensíveis
