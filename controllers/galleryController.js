@@ -1,4 +1,3 @@
-// controllers/galleryController.js
 const Gallery = require('../models/Gallery');
 const fs = require('fs');
 const path = require('path');
@@ -15,7 +14,7 @@ const getGalleryImages = async (req, res) => {
 
 const uploadGalleryImage = async (req, res) => {
   const { album } = req.body;
-  const files = req.files;
+  const files = req.files; // Agora são arquivos em MEMÓRIA (Buffers)
 
   if (!files || files.length === 0) {
     return res.status(400).json({ msg: 'Pelo menos um arquivo de imagem é obrigatório.' });
@@ -25,39 +24,39 @@ const uploadGalleryImage = async (req, res) => {
   }
 
   const uploadedImages = [];
-  const filesToDelete = [];
+  const filesToDelete = []; // Caminhos criados para deletar em caso de erro
 
   try {
     for (const file of files) {
-      filesToDelete.push(file.path); // Adicionar ficheiro original à lista de exclusão
-
-      const originalName = file.filename.split('.')[0];
+      const originalName = file.originalname.split('.')[0];
+      const uniqueSuffix = Date.now(); // Garantir unicidade
       
-      // Nomes e caminhos para a imagem em alta resolução e a miniatura
-      const highResFilename = `${originalName}_large.webp`;
-      const thumbFilename = `${originalName}_thumb.webp`;
+      const highResFilename = `${originalName}_${uniqueSuffix}_large.webp`;
+      const thumbFilename = `${originalName}_${uniqueSuffix}_thumb.webp`;
+      
       const highResFinalPath = path.join(__dirname, '..', 'uploads', highResFilename);
       const thumbFinalPath = path.join(__dirname, '..', 'uploads', thumbFilename);
+      
       const highResWebPath = `/uploads/${highResFilename}`;
       const thumbWebPath = `/uploads/${thumbFilename}`;
 
-      filesToDelete.push(highResFinalPath, thumbFinalPath); // Adicionar novos ficheiros à lista de exclusão em caso de erro
+      filesToDelete.push(highResFinalPath, thumbFinalPath);
 
-      // Processar e guardar a imagem em alta resolução (máx 1920px de largura)
-      await sharp(file.path)
+      // Processar Buffer -> Arquivo (High Res)
+      await sharp(file.buffer)
         .resize(1920, null, { withoutEnlargement: true })
         .webp({ quality: 85 })
         .toFile(highResFinalPath);
 
-      // Processar e guardar a miniatura (400px de largura)
-      await sharp(file.path)
+      // Processar Buffer -> Arquivo (Thumb)
+      await sharp(file.buffer)
         .resize(400)
         .webp({ quality: 75 })
         .toFile(thumbFinalPath);
       
       const newImage = await Gallery.create({ 
-        url: highResWebPath,         // Caminho para a imagem grande
-        thumbnailUrl: thumbWebPath,  // Caminho para a miniatura
+        url: highResWebPath,
+        thumbnailUrl: thumbWebPath,
         album,
         caption: album,
         authorEmail: req.user.email,
@@ -65,17 +64,16 @@ const uploadGalleryImage = async (req, res) => {
       uploadedImages.push(newImage);
     }
     
-    // Limpar apenas o ficheiro temporário original após sucesso
-    files.forEach(file => fs.unlinkSync(file.path));
+    // Nota: Com memoryStorage não existem arquivos temporários originais para deletar
 
     res.status(201).json(uploadedImages);
   } catch (error) {
-    // Se ocorrer um erro, remover todos os ficheiros criados (temporários e processados)
+    // Se der erro, deleta o que foi criado no disco
     filesToDelete.forEach(filepath => {
       if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
     });
     console.error('Erro no upload da galeria:', error);
-    res.status(500).json({ msg: 'Erro ao fazer upload das imagens. Falha no processamento.' });
+    res.status(500).json({ msg: 'Erro ao fazer upload das imagens.' });
   }
 };
 
@@ -109,4 +107,3 @@ module.exports = {
   deleteGalleryImage,
   deleteGalleryAlbum,
 };
-

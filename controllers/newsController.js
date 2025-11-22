@@ -1,4 +1,3 @@
-// controllers/newsController.js
 const News = require('../models/News');
 const fs = require('fs');
 const path = require('path');
@@ -15,7 +14,6 @@ const getNews = async (req, res) => {
     );
 
     const news = await News.find({ isActive: true }).sort({ date: -1 });
-
     res.json(news);
   } catch (error) {
     res.status(500).json({ msg: 'Erro ao buscar notícias.' });
@@ -28,63 +26,87 @@ const createNews = async (req, res) => {
     return res.status(400).json({ msg: 'O arquivo de imagem é obrigatório.' });
   }
 
-  const tempImagePath = req.file.path;
-  const filename = `${req.file.filename.split('.')[0]}_optimized.webp`;
+  // Gera nome do arquivo
+  const filename = `${Date.now()}_news_optimized.webp`;
   const finalImagePath = path.join(__dirname, '..', 'uploads', filename);
   const webPath = `/uploads/${filename}`;
 
   try {
-    await sharp(tempImagePath)
+    // O Sharp processa direto do Buffer (Memória) -> Para o Disco
+    await sharp(req.file.buffer)
       .resize(300)
       .webp({ quality: 80 })
       .toFile(finalImagePath);
-
-    fs.unlinkSync(tempImagePath);
 
     const news = await News.create({
       title,
       content,
       image: webPath,
       authorEmail: req.user.email,
-      externalLink, // Salva o link externo, se fornecido
+      externalLink,
     });
     res.status(201).json(news);
   } catch (error) {
-    if (fs.existsSync(tempImagePath)) fs.unlinkSync(tempImagePath);
+    // Se der erro, deleta a imagem se ela chegou a ser criada
     if (fs.existsSync(finalImagePath)) fs.unlinkSync(finalImagePath);
-    res.status(500).json({ msg: 'Erro ao criar a notícia. Falha no processamento da imagem.' });
+    res.status(500).json({ msg: 'Erro ao criar a notícia.' });
   }
 };
 
 const updateNews = async (req, res) => {
   const { id } = req.params;
-  const { title, content, externalLink } = req.body; // Adicionado externalLink
-  const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
+  const { title, content, externalLink } = req.body;
+  
+  let imagePath = null;
+
+  // Se enviou arquivo novo, processa com Sharp
+  if (req.file) {
+      try {
+        const filename = `${Date.now()}_news_upd.webp`;
+        const finalPath = path.join(__dirname, '..', 'uploads', filename);
+        
+        await sharp(req.file.buffer)
+          .resize(300)
+          .webp({ quality: 80 })
+          .toFile(finalPath);
+          
+        imagePath = `/uploads/${filename}`;
+      } catch (err) {
+          return res.status(500).json({msg: "Erro ao processar imagem."});
+      }
+  }
+
   try {
     const news = await News.findById(id);
     if (!news) {
-      return res.status(404).json({ msg: 'Notícia não encontrado.' });
+      return res.status(404).json({ msg: 'Notícia não encontrada.' });
     }
+
+    // Deleta imagem antiga se houver nova
     if (imagePath && news.image) {
       const oldImagePath = path.join(__dirname, '..', news.image);
-      fs.unlink(oldImagePath, (err) => {
-        if (err) console.error('Erro ao deletar o arquivo de imagem antigo:', err);
-      });
+      if (fs.existsSync(oldImagePath)) {
+          fs.unlink(oldImagePath, (err) => {
+            if (err) console.error('Erro ao deletar imagem antiga:', err);
+          });
+      }
     }
+
     news.title = title || news.title;
     news.content = content || news.content;
-    news.image = imagePath || news.image;
-    if (externalLink !== undefined) { // Atualiza o link apenas se for fornecido
+    news.image = imagePath || news.image; // Atualiza ou mantém
+    if (externalLink !== undefined) { 
       news.externalLink = externalLink;
     }
+
     const updatedNews = await news.save();
     res.json(updatedNews);
   } catch (error) {
-    if (req.file) {
-      fs.unlink(req.file.path, (err) => {
-        if (err) console.error('Erro ao deletar o arquivo enviado durante um erro na atualização:', err);
-      });
-    }
+      // Limpeza em caso de erro
+      if (imagePath) {
+          const p = path.join(__dirname, '..', imagePath);
+          if (fs.existsSync(p)) fs.unlinkSync(p);
+      }
     res.status(500).json({ msg: 'Erro ao atualizar a notícia.' });
   }
 };

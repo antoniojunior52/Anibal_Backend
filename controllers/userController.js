@@ -1,7 +1,8 @@
-// controllers/userController.js
 const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
+const fs = require('fs'); // <--- NOVO: Para manipular arquivos
+const path = require('path'); // <--- NOVO: Para gerenciar caminhos
 // IMPORTA O HELPER DE E-MAIL
 const { sendVerificationEmail } = require('../utils/email');
 
@@ -33,6 +34,7 @@ const getUserProfile = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        avatar: user.avatar, // <--- Retorna o avatar se existir
         role: user.role,
         isAdmin: user.isAdmin,
         isSecretaria: user.isSecretaria,
@@ -54,13 +56,46 @@ const updateUserProfile = asyncHandler(async (req, res) => {
   let needsReverification = false;
 
   if (user) {
-    // <<< VERIFICAÇÃO ADICIONADA AQUI >>>
-    // Impede que o usuário protegido altere seu próprio perfil (nome, email).
+    // <<< VERIFICAÇÃO DE PROTEÇÃO >>>
     if (user.isProtected) {
       res.status(403);
       throw new Error('Ação proibida. O perfil de usuário protegido não pode ser modificado.');
     }
-    // <<< FIM DA VERIFICAÇÃO >>>
+
+    // =================================================================================
+    // <<< INICIO DA LÓGICA DE UPLOAD DE IMAGEM (INTEGRAÇÃO NSFW) >>>
+    // Se chegou aqui, a imagem já passou pelo filtro NSFW no middleware
+    if (req.file) {
+        try {
+            // 1. Define o caminho da pasta de uploads (Na raiz do projeto)
+            // Ajuste o '../uploads' se sua pasta estiver em outro lugar
+            const uploadsDir = path.join(__dirname, '..', 'uploads');
+
+            // 2. Cria a pasta se ela não existir
+            if (!fs.existsSync(uploadsDir)){
+                fs.mkdirSync(uploadsDir, { recursive: true });
+            }
+
+            // 3. Gera um nome único: user-{ID}-{TIMESTAMP}.ext
+            const fileExt = path.extname(req.file.originalname) || '.jpg';
+            const fileName = `user-${user._id}-${Date.now()}${fileExt}`;
+            const filePath = path.join(uploadsDir, fileName);
+
+            // 4. Salva o Buffer (memória) no Disco
+            fs.writeFileSync(filePath, req.file.buffer);
+
+            // 5. Atualiza o campo no banco de dados
+            // Se houver um avatar antigo, seria bom deletá-lo aqui (opcional)
+            user.avatar = fileName; 
+
+        } catch (error) {
+            console.error("Erro ao salvar imagem:", error);
+            res.status(500);
+            throw new Error('Erro ao salvar a imagem no servidor.');
+        }
+    }
+    // <<< FIM DA LÓGICA DE UPLOAD >>>
+    // =================================================================================
 
     user.name = req.body.name || user.name;
 
@@ -71,13 +106,13 @@ const updateUserProfile = asyncHandler(async (req, res) => {
         throw new Error('Email já está em uso.');
       }
 
-      // *** LÓGICA DE RE-VERIFICAÇÃO ADICIONADA ***
+      // *** LÓGICA DE RE-VERIFICAÇÃO ***
       try {
         const code = generateVerificationCode();
         user.email = req.body.email;
         user.isVerified = false;
         user.verificationCode = code;
-        user.verificationCodeExpire = Date.now() + 90000; // 1.5 minutos (90000 ms)
+        user.verificationCodeExpire = Date.now() + 90000; // 1.5 minutos
 
         await sendVerificationEmail(user.email, code);
         needsReverification = true; // Sinaliza ao frontend
@@ -95,13 +130,14 @@ const updateUserProfile = asyncHandler(async (req, res) => {
       _id: updatedUser._id,
       name: updatedUser.name,
       email: updatedUser.email,
+      avatar: updatedUser.avatar, // <--- Retorna o novo avatar
       role: updatedUser.role,
       isAdmin: updatedUser.isAdmin,
       isVerified: updatedUser.isVerified,
-      needsReverification: needsReverification, // Envia a flag
+      needsReverification: needsReverification, 
     });
   } else {
-    res.status(404); // Corrigido de 4404 para 404
+    res.status(404); 
     throw new Error('Usuário não encontrado');
   }
 });
@@ -110,11 +146,6 @@ const updateUserProfile = asyncHandler(async (req, res) => {
 // @route   PUT /api/users/change-password
 // @access  Private
 const changePassword = async (req, res) => {
-  // NOTA: Esta rota usa 'req.user._id', o que significa que um usuário
-  // só pode alterar a *própria* senha.
-  // Se o usuário protegido for hackeado, ele *pode* alterar a própria senha.
-  // Isso é o comportamento esperado. A proteção 'isProtected'
-  // visa impedir que *outros* usuários alterem ou excluam o admin.
   const { currentPassword, newPassword } = req.body;
 
   try {
@@ -151,14 +182,11 @@ const updateUserPermissions = async (req, res) => {
       return res.status(404).json({ msg: 'Usuário não encontrado.' });
     }
 
-    // <<< VERIFICAÇÃO ADICIONADA AQUI >>>
-    // Impede que o usuário protegido tenha suas permissões alteradas por outros.
     if (user.isProtected) {
       return res.status(403).json({
         msg: 'Ação proibida. Este usuário é protegido e não pode ser modificado.',
       });
     }
-    // <<< FIM DA VERIFICAÇÃO >>>
 
     if (req.user._id.toString() === id && isAdmin === false) {
       return res.status(403).json({
@@ -172,7 +200,6 @@ const updateUserPermissions = async (req, res) => {
 
     const updatedUser = await user.save();
 
-    // Retorna o usuário atualizado sem a senha
     const userObject = updatedUser.toObject();
     delete userObject.password;
     delete userObject.verificationCode;
@@ -202,14 +229,11 @@ const deleteUser = async (req, res) => {
       return res.status(404).json({ msg: 'Usuário não encontrado.' });
     }
 
-    // <<< VERIFICAÇÃO ADICIONADA AQUI >>>
-    // Impede que o usuário protegido seja excluído.
     if (user.isProtected) {
       return res.status(403).json({
         msg: 'Ação proibida. Este usuário não pode ser excluído.',
       });
     }
-    // <<< FIM DA VERIFICAÇÃO >>>
 
     if (req.user._id.toString() === id) {
       return res.status(403).json({ msg: 'Não é possível se excluir.' });
