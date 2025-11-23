@@ -36,13 +36,13 @@ const checkImage = async (imageBuffer) => {
         // -----------------------------------------------------
 
         // REGRA DE BLOQUEIO AJUSTADA:
-        // 1. Bloqueia se 'Porn' for maior que 40% (0.40)
-        // 2. Bloqueia se 'Hentai' for maior que 40% (0.40)
-        // 3. Bloqueia se 'Sexy' (provocante) for maior que 80% (0.80) - Opcional para escola
+        // 1. Bloqueia se 'Porn' for maior que 10% (0.10)
+        // 2. Bloqueia se 'Hentai' for maior que 10% (0.10)
+        // 3. Bloqueia se 'Sexy' (provocante) for maior que 40% (0.40) - Opcional para escola
         const isUnsafe = predictions.some(p => {
-            if (p.className === 'Porn' && p.probability > 0.40) return true;
-            if (p.className === 'Hentai' && p.probability > 0.40) return true;
-            if (p.className === 'Sexy' && p.probability > 0.85) return true; // Escola: bloqueia sensualidade excessiva
+            if (p.className === 'Porn' && p.probability > 0.10) return true;
+            if (p.className === 'Hentai' && p.probability > 0.10) return true;
+            if (p.className === 'Sexy' && p.probability > 0.40) return true; // Escola: bloqueia sensualidade excessiva
             return false;
         });
 
