@@ -26,7 +26,7 @@ const nsfwMiddleware = async (req, res, next) => {
     } catch (error) {
         console.error("Erro no filtro NSFW:", error);
         // FIX DE SEGURANÇA:
-        // Se der erro ao analisar (arquivo corrompido ou formato estranho), BLOQUEIA.
+        // Se der erro ao analisar o (arquivo corrompido ou formato estranho), BLOQUEIA.
         // É melhor bloquear um falso positivo do que deixar passar um erro.
         return res.status(500).json({ 
             error: "Erro ao verificar segurança da imagem. Tente enviar um arquivo JPG ou PNG válido." 
