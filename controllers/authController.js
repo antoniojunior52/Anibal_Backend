@@ -1,4 +1,3 @@
-// controllers/authController.js
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -32,8 +31,10 @@ const registerUserByAdmin = async (req, res) => {
 
     // 3. Preparar dados para o novo usuário
     
-    // Gerar uma senha temporária aleatória (necessária para criar o user no BD)
-    const tempPassword = crypto.randomBytes(20).toString('hex');
+    // --- CORREÇÃO AQUI ---
+    // Geramos uma senha aleatória para satisfazer o "required: true" do Banco de Dados.
+    // O usuário não precisa saber essa senha, pois ele vai criar uma nova pelo link do e-mail.
+    const tempPassword = crypto.randomBytes(10).toString('hex'); 
 
     // Gerar o token de redefinição de senha (lógica da forgotPassword)
     const resetToken = crypto.randomBytes(20).toString('hex');
@@ -51,7 +52,7 @@ const registerUserByAdmin = async (req, res) => {
     user = await User.create({
       name,
       email,
-      password: tempPassword, // Salva a senha temporária
+      password: tempPassword, // <--- Agora passamos a senha gerada
       role,
       isAdmin: isAdmin || false,
       isSecretaria: isSecretaria || false,
@@ -92,6 +93,7 @@ const registerUserByAdmin = async (req, res) => {
 
   } catch (error) {
     // 7. Erro principal (Falha ao checar ou criar usuário no BD)
+    console.error(error); // Bom para debugar no console
     res.status(500).json({ msg: error.message });
   }
 };

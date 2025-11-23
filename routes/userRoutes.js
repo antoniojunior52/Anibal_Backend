@@ -25,7 +25,7 @@ router.route('/profile')
   .put(
     protect, 
     upload.single('avatar'), // <--- 3. Recebe o arquivo (nome do campo: 'avatar')
-    nsfwCheck,               // <--- 4. A IA verifica se é porno
+    nsfwCheck,               // <--- 4. A IA verifica se é porno, hentai, morte, multilação...
     updateUserProfile        // <--- 5. Se passar, chega no seu controller
   );
 

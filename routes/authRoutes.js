@@ -8,7 +8,7 @@ const {
   resetPassword,
   verifyEmail,
   //resendCode,
-  checkEmail, // *** 1. IMPORTA A NOVA FUNÇÃO ***
+  checkEmail, 
 } = require('../controllers/authController');
 const { protect, authorize } = require('../middleware/auth');
 

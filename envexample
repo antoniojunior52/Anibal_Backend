@@ -1,0 +1,14 @@
+PORT=5000 //sua porta
+MONGO_URI=mongodb+srv://anibal:example
+JWT_SECRET=0dce4e2d41ee85ee6bb4445557a7a877f076aacc992d50e8a7e20364ae1dcb01 //gerado automaticamente
+UPLOAD_FOLDER=uploads //pasta de uploads
+GOOGLE_API_KEY=AIzaSyD9HntgQL-9IYURsypzVYHlg5W_HA5C7TQ //key de api do google
+EMAIL_USERNAME=anibal.escola.01@gmail.com //Envio de email
+EMAIL_PASSWORD=tjmt ujvc amah lisq//Envio de email
+
+EMAIL_USERNAME=anibal.escola.01@gmail.com//Envio de email
+EMAIL_PASSWORD=urzo oxfc ghzz oprs//Envio de email
+FRONTEND_URL=http://localhost:3000 //Url do frontend
+
+MASTER_ADMIN_EMAIL=anibal.escola.01@gmail.com //Email do admin master para a criação do primeiro admin
+MASTER_ADMIN_PASSWORD=Anibal2025@ //Senha do admin master para a criação do primeiro admin

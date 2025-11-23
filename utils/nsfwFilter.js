@@ -1,14 +1,15 @@
 const tf = require('@tensorflow/tfjs');
 const nsfw = require('nsfwjs');
-const jpeg = require('jpeg-js');
+const sharp = require('sharp');
 
 let model;
 
-// Carrega o modelo apenas uma vez (Singleton)
+// Carrega o modelo apenas uma vez
 const loadModel = async () => {
     if (model) return model;
     console.log("⏳ Carregando modelo NSFW...");
-    model = await nsfw.load(); // Baixa o modelo da web na primeira vez
+    // Carrega o modelo 'quantized' (mais leve) ou default
+    model = await nsfw.load(); 
     console.log("✅ Modelo NSFW carregado!");
     return model;
 };
@@ -16,30 +17,48 @@ const loadModel = async () => {
 const checkImage = async (imageBuffer) => {
     const _model = await loadModel();
 
-    // Decodifica a imagem (necessário pois Node puro não tem <canvas>)
-    const image = await jpeg.decode(imageBuffer, true);
-    
-    const numChannels = 3;
-    const numPixels = image.width * image.height;
-    const values = new Int32Array(numPixels * numChannels);
+    try {
+        // Converte a imagem para o formato que a IA entende
+        const { data, info } = await sharp(imageBuffer)
+            .resize(224, 224, { fit: 'cover' })
+            .removeAlpha() // Remove transparência
+            .raw()
+            .toBuffer({ resolveWithObject: true });
+        
+        const numChannels = 3;
+        const tensor = tf.tensor3d(data, [info.height, info.width, numChannels], 'int32');
+        
+        const predictions = await _model.classify(tensor);
+        tensor.dispose(); // Limpa memória RAM
 
-    for (let i = 0; i < numPixels; i++) {
-        for (let c = 0; c < numChannels; c++) {
-            values[i * numChannels + c] = image.data[i * 4 + c];
+        // --- MODO ESPIÃO: MOSTRA NO TERMINAL O QUE A IA VIU ---
+        console.log("🔍 Análise da IA:", predictions);
+        // -----------------------------------------------------
+
+        // REGRA DE BLOQUEIO AJUSTADA:
+        // 1. Bloqueia se 'Porn' for maior que 40% (0.40)
+        // 2. Bloqueia se 'Hentai' for maior que 40% (0.40)
+        // 3. Bloqueia se 'Sexy' (provocante) for maior que 80% (0.80) - Opcional para escola
+        const isUnsafe = predictions.some(p => {
+            if (p.className === 'Porn' && p.probability > 0.40) return true;
+            if (p.className === 'Hentai' && p.probability > 0.40) return true;
+            if (p.className === 'Sexy' && p.probability > 0.85) return true; // Escola: bloqueia sensualidade excessiva
+            return false;
+        });
+
+        if (isUnsafe) {
+            console.log("🚨 BLOQUEADO: Conteúdo impróprio detectado.");
+        } else {
+            console.log("✅ APROVADO: Imagem considerada segura.");
         }
+
+        return isUnsafe;
+
+    } catch (error) {
+        console.error("Erro técnico ao analisar imagem com IA:", error);
+        // Se der erro na conversão, por segurança, consideramos inseguro ou lançamos erro
+        throw error; 
     }
-
-    const tensor = tf.tensor3d(values, [image.height, image.width, numChannels], 'int32');
-    
-    const predictions = await _model.classify(tensor);
-    tensor.dispose(); // Limpa memória
-
-    // Regra: Se Porn ou Hentai tiverem mais de 50% de certeza
-    const isUnsafe = predictions.some(p => 
-        ['Porn', 'Hentai'].includes(p.className) && p.probability > 0.50
-    );
-
-    return isUnsafe;
 };
 
 module.exports = { checkImage };
